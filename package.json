@@ -13,8 +13,8 @@
     "i18n:missing": "node scripts/check-i18n-missing.mjs",
     "electron": "electron .",
     "electron:dev": "concurrently \"vite --host\" \"wait-on http://localhost:5173 -t 30000 && electron .\"",
-    "electron:build": "vite build && electron-builder",
-    "electron:build:portable": "vite build && electron-builder --win --dir",
+    "electron:build": "vite build && electron-builder --publish never",
+    "electron:build:portable": "vite build && electron-builder --win --dir --publish never",
     "electron:build:installer": "electron-builder --win nsis --prepackaged release-builds/win-unpacked",
     "test": "jest"
   },
@@ -38,6 +38,7 @@
     "wait-on": "^7.2.0"
   },
   "build": {
+    "publish": null,
     "appId": "com.kunqiong.qrcode",
     "productName": "2weima",
     "directories": {
@@ -67,21 +68,16 @@
     },
     "mac": {
       "target": [
-        "dmg",
         "zip"
       ],
       "category": "public.app-category.utilities",
       "icon": "public/二维码生成器.png",
-      "identity": null,
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
       "extendInfo": {
         "CFBundleDisplayName": "二维码生成器",
         "CFBundleName": "二维码生成器"
       }
-    },
-    "dmg": {
-      "sign": false
     },
     "linux": {
       "target": [

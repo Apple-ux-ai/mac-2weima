@@ -8,6 +8,10 @@ on:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+    # 显式收紧权限：不发 GitHub Release（见 package.json publish:null）；upload-artifact 需要 actions: write
+    permissions:
+      contents: read
+      actions: write
 
     strategy:
       fail-fast: false
@@ -31,12 +35,20 @@ jobs:
         run: npm test
         continue-on-error: true
 
-      - name: Build Electron App
-        run: npm run electron:build
+      # mac：跳过 DMG（CI 未签名易失败）；图标复制到纯英文路径，避免 iconutil 对中文路径报错
+      - name: Prepare Mac icon (ASCII path)
+        if: matrix.os == 'macos-latest'
+        run: mkdir -p build && cp "public/二维码生成器.png" build/icon-mac.png
+
+      - name: Build Electron App (macOS zip only)
+        if: matrix.os == 'macos-latest'
+        run: npm run build && npx electron-builder --mac zip --publish never --config.mac.icon=build/icon-mac.png
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # 未配置 Apple 证书时跳过签名，避免 macOS 任务卡住或失败
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ matrix.os == 'macos-latest' && 'false' || 'true' }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Build Electron App (Windows / Linux)
+        if: matrix.os != 'macos-latest'
+        run: npm run electron:build
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
