@@ -1,0 +1,84 @@
+{
+  "name": "2weima",
+  "version": "1.1.3",
+  "author": "KunQiong",
+  "description": "二维码生成工具 - Web和桌面端",
+  "main": "electron/main.cjs",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview",
+    "i18n:scan": "node scripts/scan-i18n-texts.mjs",
+    "i18n:missing": "node scripts/check-i18n-missing.mjs",
+    "electron": "electron .",
+    "electron:dev": "concurrently \"vite --host\" \"wait-on http://localhost:5173 -t 30000 && electron .\"",
+    "electron:build": "vite build && electron-builder",
+    "electron:build:portable": "vite build && electron-builder --win --dir",
+    "electron:build:installer": "electron-builder --win nsis --prepackaged release-builds/win-unpacked",
+    "test": "jest"
+  },
+  "dependencies": {
+    "crypto-js": "^4.2.0",
+    "jszip": "^3.10.1",
+    "qrcode": "^1.5.3",
+    "vue": "^3.4.0",
+    "vue-i18n": "^11.3.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.0",
+    "concurrently": "^8.2.0",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.0",
+    "jest": "^30.2.0",
+    "playwright": "^1.58.2",
+    "terser": "^5.44.1",
+    "vite": "^5.0.0",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.kunqiong.qrcode",
+    "productName": "二维码生成器",
+    "directories": {
+      "output": "release-builds"
+    },
+    "extraMetadata": {
+      "main": "electron/main.cjs"
+    },
+    "removePackageScripts": true,
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "public/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ],
+      "icon": "public/二维码生成器.png",
+      "extraFiles": [
+        {
+          "from": "resources/updater.exe",
+          "to": "."
+        }
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.utilities",
+      "icon": "public/二维码生成器.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "二维码生成器"
+    }
+  }
+}

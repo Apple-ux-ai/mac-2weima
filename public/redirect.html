@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Redirecting...</title>
+  <script src="./i18n/core.js"></script>
+  <link rel="stylesheet" href="./rtl.css">
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f5f5;
+    }
+    .loading {
+      text-align: center;
+      color: #666;
+    }
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #2196F3;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="loading">
+    <div class="spinner"></div>
+    <p id="connectingText">Connecting to server...</p>
+  </div>
+
+  <script>
+    const t = (key, params, fallback) => window.PublicI18n?.t(key, params, fallback) || fallback || key
+    document.title = t('common.loading', null, 'Redirecting...')
+    const connectingEl = document.getElementById('connectingText')
+    if (connectingEl) connectingEl.textContent = t('common.loading', null, 'Connecting to server...')
+
+    // 从URL参数获取活码ID和可用地址列表
+    const urlParams = new URLSearchParams(window.location.search)
+    const liveCodeId = urlParams.get('id')
+    const addressesParam = urlParams.get('addrs') // 逗号分隔的完整URL列表
+    const type = urlParams.get('type') || 'livecode' // 类型：livecode 或 advanced
+    
+    if (!liveCodeId) {
+      document.body.innerHTML = `<div class="loading"><p style="color: #f44336;">${t('redirect.invalidLink', null, 'Invalid link')}</p></div>`
+      throw new Error('缺少活码ID')
+    }
+    
+    // 解析地址列表（每个地址已经是完整的URL）
+    const addresses = addressesParam ? addressesParam.split(',').map(addr => decodeURIComponent(addr.trim())) : []
+    
+    if (addresses.length === 0) {
+      document.body.innerHTML = `<div class="loading"><p style="color: #f44336;">${t('redirect.missingServer', null, 'Missing server address')}</p></div>`
+      throw new Error('缺少服务器地址')
+    }
+    
+    // 尝试每个地址，找到可用的
+    let currentIndex = 0
+    
+    function tryNextAddress() {
+      if (currentIndex >= addresses.length) {
+        document.body.innerHTML = '<div class="loading"><p style="color: #f44336;">无法连接到服务器</p><p style="font-size: 0.9rem; color: #999;">请确保设备在同一网络</p></div>'
+        return
+      }
+      
+      const targetUrl = addresses[currentIndex]
+      
+      // 使用fetch测试连接，如果成功则跳转
+      // 由于CORS限制，我们使用no-cors模式
+      fetch(targetUrl, { 
+        method: 'HEAD', 
+        mode: 'no-cors',
+        cache: 'no-cache'
+      })
+        .then(() => {
+          // 连接成功，直接跳转
+          window.location.href = targetUrl
+        })
+        .catch(() => {
+          // 连接失败（可能是CORS问题，但实际可能可用），尝试直接跳转
+          // 或者尝试下一个地址
+          currentIndex++
+          setTimeout(tryNextAddress, 500)
+        })
+      
+      // 如果3秒后还没跳转，也尝试直接跳转（可能是CORS阻止了fetch但实际可用）
+      setTimeout(() => {
+        if (document.location.href.includes('redirect.html')) {
+          window.location.href = targetUrl
+        }
+      }, 2000)
+    }
+    
+    // 立即尝试第一个地址
+    tryNextAddress()
+    
+    // 如果5秒后还没跳转，直接尝试跳转到第一个地址（可能是CORS限制导致fetch失败，但实际可用）
+    setTimeout(() => {
+      if (currentIndex < addresses.length) {
+        const firstAddress = addresses[0].trim()
+        window.location.href = `${firstAddress}/livecode.html#/livecode/${liveCodeId}`
+      }
+    }, 5000)
+  </script>
+</body>
+</html>
+

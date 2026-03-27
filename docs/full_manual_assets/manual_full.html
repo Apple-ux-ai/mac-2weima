@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>二维码生成器 使用说明</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #fff; color: #222; font-family: SimSun, "Songti SC", "宋体", serif; }
+    .page { width: 595.3pt; height: 841.9pt; margin: 0 auto; position: relative; page-break-after: always; overflow: hidden; background: #fff; }
+    .page:last-child { page-break-after: auto; }
+    .inner { position: absolute; left: 90pt; right: 90pt; top: 74pt; }
+    .cover-title { position: absolute; left: 0; right: 0; top: 322pt; text-align: center; font-size: 38px; line-height: 1.55; font-weight: 400; }
+    .toc-title { text-align: center; font-size: 30px; line-height: 1.3; margin: 0 0 14pt; font-weight: 400; }
+    .toc-list { margin-top: 8pt; }
+    .toc-item { display: flex; align-items: flex-end; font-size: 24px; line-height: 1.8; margin: 0; }
+    .toc-item.sub { padding-left: 28pt; font-size: 21px; line-height: 1.75; }
+    .toc-item .name { white-space: nowrap; margin-right: 8pt; }
+    .toc-item .leader { flex: 1; border-bottom: 3px dotted #111; margin: 0 8pt 7pt 0; min-width: 20pt; }
+    .toc-item .page-num { width: 18pt; text-align: right; white-space: nowrap; }
+    h2.section-title { margin: 0 0 10pt; font-size: 30px; line-height: 1.35; font-weight: 600; }
+    h3.func-title { margin: 0 0 10pt; font-size: 24px; line-height: 1.35; font-weight: 600; }
+    p.lead { margin: 0 0 10pt; font-size: 18px; line-height: 1.9; }
+    p.desc { margin: 0 0 8pt; font-size: 18px; line-height: 1.8; }
+    ol.steps { margin: 0 0 10pt 22pt; padding: 0; font-size: 17px; line-height: 1.75; }
+    .shot { width: 415pt; max-height: 470pt; object-fit: contain; border: none; display: block; margin-top: 8pt; }
+    .shot.placeholder {
+      border: 1px dashed #888;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #555;
+      font-size: 14px;
+      min-height: 260pt;
+      padding: 10pt;
+      text-align: center;
+      box-sizing: border-box;
+    }
+    .page-no { position: absolute; bottom: 28pt; left: 0; right: 0; text-align: center; font-size: 14px; color: #444; }
+    .split { height: 1px; background: #444; margin: 14pt 0; opacity: 0.35; }
+  </style>
+</head>
+<body>
+  <section class="page">
+    <div class="cover-title">
+      <div>二维码生成器</div>
+      <div>（使用说明）</div>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="inner">
+      <h2 class="toc-title">目录</h2>
+      <div class="toc-list">
+        <p class="toc-item"><span class="name">1. Introduction</span><span class="leader"></span><span class="page-num">3</span></p>
+        <p class="toc-item sub"><span class="name">(1) Purpose</span><span class="leader"></span><span class="page-num">3</span></p>
+        <p class="toc-item sub"><span class="name">(2) Environment</span><span class="leader"></span><span class="page-num">3</span></p>
+        <p class="toc-item"><span class="name">2. Feature Sections</span><span class="leader"></span><span class="page-num">4</span></p>
+        <p class="toc-item sub"><span class="name">(1) 二维码生成</span><span class="leader"></span><span class="page-num">4</span></p>
+        <p class="toc-item sub"><span class="name">(2) 设置与预览</span><span class="leader"></span><span class="page-num">9</span></p>
+      </div>
+    </div>
+    <div class="page-no">第 2 页</div>
+  </section>
+
+  <section class="page">
+    <div class="inner">
+      <h2 class="section-title">1. Introduction</h2>
+      <p class="lead">本说明用于指导你使用“二维码生成器”完成二维码生成、预览与管理等操作，适用于日常办公与内容分发场景。</p>
+
+      <h2 class="section-title" style="font-size: 26px;">2. Environment</h2>
+      <p class="lead">支持 Web 与桌面端（Electron）。建议在 Windows 10/11 上使用 Chromium 内核浏览器/桌面端运行；为保证截图与展示一致，建议窗口分辨率不低于 1366×768。</p>
+
+      <h2 class="section-title" style="font-size: 26px;">3. Quick Start</h2>
+      <ol class="steps">
+        <li>打开应用，选择顶部页签（文本/文件/图片/音视频/批量/高级）。</li><li>按页面提示输入内容或选择文件，然后点击“生成”。</li><li>在预览/设置弹窗中调整参数并下载/复制二维码结果。</li>
+      </ol>
+
+      <div class="split"></div>
+      <p class="desc">主界面概览（默认文本/网址页）</p>
+      <img class="shot" src="./screenshots/home-overview.png" alt="overview" />
+    </div>
+    <div class="page-no">第 3 页</div>
+  </section>
+
+
+  <section class="page">
+    <div class="inner">
+      <h2 class="section-title">四、操作说明</h2>
+      <h3 class="func-title">（1）【二维码生成】文本/网址二维码</h3>
+      <p class="desc">输入一段文本或网址，生成可扫描的二维码，适合分享链接、文案、联系方式等。</p>
+      <ol class="steps">
+        <li>点击顶部“文本”页签，输入文本或网址。</li><li>点击“生成”。</li><li>在预览/设置中调整尺寸、颜色、容错等级等，并下载或复制二维码。</li>
+      </ol>
+      <img class="shot" src="./screenshots/tab-text.png" alt="二维码生成-文本/网址二维码" />
+    </div>
+    <div class="page-no">第 4 页</div>
+  </section>
+
+  <section class="page">
+    <div class="inner">
+      
+      <h3 class="func-title">（2）【二维码生成】文档二维码（单个/多个）</h3>
+      <p class="desc">选择 Word/Excel/PPT/PDF 等文档生成二维码。单个文档生成查看二维码；多个文档会生成“文件夹二维码”。</p>
+      <ol class="steps">
+        <li>点击顶部“文件”页签，点击“添加文件”选择文档（可多选）。</li><li>按需填写标题、是否允许下载等选项。</li><li>点击“生成”，在预览中保存/分享二维码。</li>
+      </ol>
+      <img class="shot" src="./screenshots/tab-file.png" alt="二维码生成-文档二维码（单个/多个）" />
+    </div>
+    <div class="page-no">第 5 页</div>
+  </section>
+
+  <section class="page">
+    <div class="inner">
+      
+      <h3 class="func-title">（3）【二维码生成】图片二维码（单张/多张）</h3>
+      <p class="desc">选择图片生成二维码。单张图片生成查看二维码；多张图片会生成“图片文件夹二维码”。</p>
+      <ol class="steps">
+        <li>点击顶部“图片”页签，点击上传区域选择图片（可多选）。</li><li>点击“生成”。</li><li>在预览/设置中下载或复制二维码。</li>
+      </ol>
+      <img class="shot" src="./screenshots/tab-image.png" alt="二维码生成-图片二维码（单张/多张）" />
+    </div>
+    <div class="page-no">第 6 页</div>
+  </section>
+
+  <section class="page">
+    <div class="inner">
+      
+      <h3 class="func-title">（4）【二维码生成】音视频二维码（在线链接/本地文件）</h3>
+      <p class="desc">支持为音视频链接生成二维码；也可选择本地音视频文件生成二维码（文件较大时建议使用在线链接模式）。</p>
+      <ol class="steps">
+        <li>点击顶部“音视频”页签，选择“在线链接”或“本地文件”模式。</li><li>在线链接：粘贴链接；本地文件：选择音视频文件。</li><li>点击“生成”，在预览中保存/分享二维码。</li>
+      </ol>
+      <img class="shot" src="./screenshots/tab-media.png" alt="二维码生成-音视频二维码（在线链接/本地文件）" />
+    </div>
+    <div class="page-no">第 7 页</div>
+  </section>
+
+  <section class="page">
+    <div class="inner">
+      
+      <h3 class="func-title">（5）【二维码生成】高级编辑（自定义内容）</h3>
+      <p class="desc">进入高级编辑模式，进行更灵活的内容编辑与二维码生成。</p>
+      <ol class="steps">
+        <li>点击顶部“高级”页签（或在文本页点击“高级”按钮）。</li><li>按需要编辑内容或模板。</li><li>生成后在预览中调整参数并导出。</li>
+      </ol>
+      <img class="shot" src="./screenshots/tab-advanced.png" alt="二维码生成-高级编辑（自定义内容）" />
+    </div>
+    <div class="page-no">第 8 页</div>
+  </section>
+
+  <section class="page">
+    <div class="inner">
+      
+      <h3 class="func-title">（6）【设置与预览】二维码设置与预览</h3>
+      <p class="desc">生成后打开设置与预览弹窗，调整二维码尺寸、颜色、背景色与纠错等级，并进行导出。</p>
+      <ol class="steps">
+        <li>在任意生成页签点击“生成”。</li><li>在弹窗中调整参数并点击“重新生成”（如有）。</li><li>下载/复制二维码图片用于分享或打印。</li>
+      </ol>
+      <img class="shot" src="./screenshots/qr-settings-preview.png" alt="设置与预览-二维码设置与预览" />
+    </div>
+    <div class="page-no">第 9 页</div>
+  </section>
+</body>
+</html>

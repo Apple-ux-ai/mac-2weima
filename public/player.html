@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Media Player</title>
+  <script src="./i18n/core.js"></script>
+  <script src="./toast.js"></script>
+  <link rel="stylesheet" href="./rtl.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .player-container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 900px;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .player-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      text-align: center;
+      position: relative;
+    }
+
+    .player-header h1 {
+      font-size: 1.5rem;
+      margin-bottom: 8px;
+    }
+
+    .file-name {
+      font-size: 0.9rem;
+      opacity: 0.9;
+    }
+
+    .video-wrapper {
+      position: relative;
+      width: 100%;
+      background: #000;
+    }
+
+    video, audio {
+      width: 100%;
+      max-height: 500px;
+      display: block;
+    }
+
+    .error-message {
+      padding: 40px;
+      text-align: center;
+      color: #f44336;
+    }
+
+    .error-message h2 {
+      margin-bottom: 16px;
+    }
+
+    .error-message p {
+      color: #666;
+      line-height: 1.6;
+    }
+
+    .loading {
+      padding: 60px;
+      text-align: center;
+      color: #666;
+    }
+
+    .loading::after {
+      content: '...';
+      animation: dots 1.5s infinite;
+    }
+
+    @keyframes dots {
+      0%, 20% { content: '.'; }
+      40% { content: '..'; }
+      60%, 100% { content: '...'; }
+    }
+
+    .info-panel {
+      padding: 20px;
+      border-top: 1px solid #eee;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      font-size: 0.9rem;
+    }
+
+    .info-label {
+      color: #666;
+    }
+
+    .info-value {
+      color: #333;
+      font-weight: 500;
+    }
+
+    .back-button {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      padding: 8px 16px;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 6px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.3s;
+      backdrop-filter: blur(10px);
+      z-index: 10;
+    }
+
+    .back-button:hover {
+      background: rgba(255, 255, 255, 0.3);
+      border-color: rgba(255, 255, 255, 0.5);
+      transform: translateY(-1px);
+    }
+  </style>
+</head>
+<body>
+  <div class="player-container">
+    <div class="player-header">
+      <h1 id="playerTitle">🎬 Media Player</h1>
+      <p class="file-name" id="fileName">Loading...</p>
+    </div>
+
+    <div id="playerContent" class="loading">
+      <span id="playerLoading">Loading media...</span>
+    </div>
+
+    <div id="infoPanel" class="info-panel" style="display: none;">
+      <div class="info-row">
+        <span class="info-label" id="playerLabelName">File Name:</span>
+        <span class="info-value" id="infoFileName">-</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label" id="playerLabelType">File Type:</span>
+        <span class="info-value" id="infoFileType">-</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label" id="playerLabelGenerated">Generated At:</span>
+        <span class="info-value" id="infoTimestamp">-</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const t = (key, params, fallback) => window.PublicI18n?.t(key, params, fallback) || fallback || key
+    document.title = t('player.title', null, 'Media Player')
+    window.addEventListener('DOMContentLoaded', () => {
+      const setText = (id, key, fallback) => {
+        const el = document.getElementById(id)
+        if (el) el.textContent = t(key, null, fallback)
+      }
+      setText('playerTitle', 'player.title', '🎬 Media Player')
+      setText('playerLoading', 'player.loading', 'Loading media...')
+      setText('playerLabelName', 'viewer.fileName', 'File Name:')
+      setText('playerLabelType', 'viewer.fileType', 'File Type:')
+      setText('playerLabelGenerated', 'viewer.generatedAt', 'Generated At:')
+    })
+
+    function getVideoIdFromUrl() {
+      const hash = window.location.hash
+      const match = hash.match(/\/player\/(.+)/)
+      return match ? match[1] : null
+    }
+
+    function formatFileSize(bytes) {
+      if (bytes < 1024) return bytes + ' B'
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB'
+      return (bytes / (1024 * 1024)).toFixed(2) + ' MB'
+    }
+
+    function formatDate(timestamp) {
+      const locale = window.PublicI18n?.locale === 'zh_CN' ? 'zh-CN' : window.PublicI18n?.locale
+      return new Date(timestamp).toLocaleString(locale || undefined)
+    }
+
+    function goBack() {
+      console.log('返回按钮被点击')
+      
+      // 检查是否是Electron环境
+      const isElectron = typeof window !== 'undefined' && window.electron !== undefined
+      console.log('是否Electron环境:', isElectron)
+      
+      // 检查URL参数，判断是否有返回地址
+      const urlParams = new URLSearchParams(window.location.search)
+      const returnUrl = urlParams.get('returnUrl')
+      
+      console.log('返回按钮点击，returnUrl:', returnUrl)
+      
+      // 如果有返回URL，优先使用返回URL
+      if (returnUrl) {
+        try {
+          // 在Electron环境中，通过IPC关闭窗口
+          if (isElectron) {
+            console.log('Electron环境：通过IPC关闭窗口并返回')
+            try {
+              // 优先使用IPC方法关闭窗口
+              if (window.electron && typeof window.electron.closeWindow === 'function') {
+                window.electron.closeWindow().then(result => {
+                  console.log('IPC关闭窗口结果:', result)
+                  if (result && result.success) {
+                    console.log('窗口已通过IPC关闭')
+                  } else {
+                    console.log('IPC关闭失败，尝试跳转')
+                    const decodedUrl = decodeURIComponent(returnUrl)
+                    window.location.href = decodedUrl
+                  }
+                }).catch(e => {
+                  console.error('IPC关闭窗口异常:', e)
+                  // 备用方案：跳转到返回URL
+                  try {
+                    const decodedUrl = decodeURIComponent(returnUrl)
+                    window.location.href = decodedUrl
+                  } catch (e) {
+                    console.error('跳转失败:', e)
+                    window.history.back()
+                  }
+                })
+              } else {
+                // 如果没有IPC方法，直接跳转
+                const decodedUrl = decodeURIComponent(returnUrl)
+                window.location.href = decodedUrl
+              }
+            } catch (e) {
+              console.error('Electron关闭窗口失败:', e)
+              // 最后尝试跳转
+              try {
+                const decodedUrl = decodeURIComponent(returnUrl)
+                window.location.href = decodedUrl
+              } catch (e) {
+                window.history.back()
+              }
+            }
+            return
+          }
+          
+          // Web环境：跳转到返回URL
+          const decodedUrl = decodeURIComponent(returnUrl)
+          console.log('跳转到返回URL:', decodedUrl)
+          window.location.href = decodedUrl
+          return
+        } catch (e) {
+          console.error('处理返回URL失败:', e)
+          // 如果出错，继续使用默认返回逻辑
+        }
+      }
+      
+      // 默认返回逻辑
+      // 在Electron环境中，尝试关闭窗口
+      if (isElectron) {
+        try {
+          if (window.electron && typeof window.electron.closeWindow === 'function') {
+            window.electron.closeWindow().then(result => {
+              if (!result || !result.success) {
+                // IPC关闭失败，使用history.back
+                if (window.history.length > 1) {
+                  window.history.back()
+                } else {
+                  window.close()
+                }
+              }
+            }).catch(() => {
+              // IPC失败，使用history.back
+              if (window.history.length > 1) {
+                window.history.back()
+              } else {
+                window.close()
+              }
+            })
+            return
+          } else {
+            // 没有IPC方法，尝试关闭窗口
+            window.close()
+            // 如果关闭失败（可能权限问题），使用history.back
+            setTimeout(() => {
+              if (!window.closed && window.history.length > 1) {
+                window.history.back()
+              }
+            }, 100)
+            return
+          }
+        } catch (e) {
+          console.error('Electron关闭窗口失败:', e)
+        }
+      }
+      
+      // Web环境：尝试返回上一页
+      if (window.history.length > 1) {
+        window.history.back()
+      } else {
+        // 如果没有历史记录，尝试关闭窗口
+        try {
+          window.close()
+        } catch (e) {
+          // 如果无法关闭，跳转到主页
+          const baseUrl = window.location.origin
+          window.location.href = baseUrl
+        }
+      }
+    }
+
+    // 从IndexedDB读取文件
+    async function getFileFromIndexedDB(id) {
+      return new Promise((resolve, reject) => {
+        if (!('indexedDB' in window)) {
+          resolve(null)
+          return
+        }
+        
+        const request = indexedDB.open('QRCodeStorage', 1)
+        
+        request.onerror = () => {
+          console.warn('IndexedDB打开失败:', request.error)
+          resolve(null)
+        }
+        
+        request.onsuccess = () => {
+          const db = request.result
+          const transaction = db.transaction(['files'], 'readonly')
+          const store = transaction.objectStore('files')
+          const getRequest = store.get(id)
+          
+          getRequest.onsuccess = () => {
+            if (getRequest.result) {
+              console.log('✓ 从IndexedDB获取视频成功:', id)
+              resolve(getRequest.result.data)
+            } else {
+              resolve(null)
+            }
+          }
+          
+          getRequest.onerror = () => {
+            console.warn('IndexedDB读取失败:', getRequest.error)
+            resolve(null)
+          }
+        }
+        
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result
+          if (!db.objectStoreNames.contains('files')) {
+            db.createObjectStore('files', { keyPath: 'id' })
+          }
+        }
+      })
+    }
+
+    async function loadVideo() {
+      const videoId = getVideoIdFromUrl()
+      
+      if (!videoId) {
+        showError('无效的视频ID', '请扫描有效的二维码')
+        return
+      }
+
+      try {
+        let videoData = null
+        
+        // 步骤1: 从localStorage读取
+        const videoDataStr = localStorage.getItem(videoId)
+        if (videoDataStr) {
+          try {
+            const parsed = JSON.parse(videoDataStr)
+            // 检查是否是IndexedDB标记
+            if (parsed._indexedDB === true) {
+              // 数据存储在IndexedDB中，从IndexedDB读取
+              console.log('检测到IndexedDB标记，从IndexedDB读取:', videoId)
+              videoData = await getFileFromIndexedDB(videoId)
+            } else {
+              // 直接是数据内容
+              videoData = parsed
+            }
+          } catch (parseError) {
+            console.error('解析localStorage数据失败:', parseError)
+          }
+        }
+        
+        // 步骤2: 如果localStorage没有，尝试从IndexedDB读取
+        if (!videoData) {
+          videoData = await getFileFromIndexedDB(videoId)
+        }
+        
+        if (!videoData) {
+          showError('视频未找到', '该视频可能已过期或被删除。\n请重新生成二维码。')
+          return
+        }
+        
+        // 更新文件名
+        document.getElementById('fileName').textContent = videoData.fileName
+
+        // 创建播放器
+        const playerContent = document.getElementById('playerContent')
+        const isVideo = videoData.fileType.startsWith('video/')
+        
+        const mediaElement = document.createElement(isVideo ? 'video' : 'audio')
+        mediaElement.src = videoData.dataURL
+        mediaElement.controls = true
+        mediaElement.autoplay = false
+        
+        if (isVideo) {
+          const wrapper = document.createElement('div')
+          wrapper.className = 'video-wrapper'
+          wrapper.appendChild(mediaElement)
+          playerContent.innerHTML = ''
+          playerContent.appendChild(wrapper)
+        } else {
+          playerContent.innerHTML = ''
+          playerContent.appendChild(mediaElement)
+        }
+
+        // 显示信息面板
+        document.getElementById('infoFileName').textContent = videoData.fileName
+        document.getElementById('infoFileType').textContent = videoData.fileType
+        document.getElementById('infoTimestamp').textContent = formatDate(videoData.timestamp)
+        document.getElementById('infoPanel').style.display = 'block'
+
+      } catch (error) {
+        console.error('加载视频失败:', error)
+        showError('加载失败', '视频数据可能已损坏。\n错误: ' + error.message)
+      }
+    }
+
+    function showError(title, message) {
+      const playerContent = document.getElementById('playerContent')
+      playerContent.innerHTML = `
+        <div class="error-message">
+          <h2>❌ ${title}</h2>
+          <p>${message.replace(/\n/g, '<br>')}</p>
+        </div>
+      `
+    }
+
+    // 页面加载时执行
+    window.addEventListener('load', loadVideo)
+    window.addEventListener('hashchange', loadVideo)
+  </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

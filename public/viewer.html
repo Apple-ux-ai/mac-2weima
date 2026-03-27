@@ -1,0 +1,1880 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>File Viewer</title>
+  <script src="./i18n/core.js"></script>
+  <script src="./toast.js"></script>
+  <link rel="stylesheet" href="./rtl.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .viewer-container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 1200px;
+      margin: 0 auto;
+      overflow: hidden;
+    }
+
+    .viewer-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .header-left {
+      flex: 1;
+    }
+
+    .header-left h1 {
+      font-size: 1.5rem;
+      margin-bottom: 8px;
+    }
+
+    .file-name {
+      font-size: 0.95rem;
+      opacity: 0.9;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .file-icon {
+      font-size: 1.5rem;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 10px;
+    }
+
+    .header-btn {
+      padding: 10px 20px;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .header-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .content-area {
+      min-height: 400px;
+      background: #f5f5f5;
+    }
+
+    /* 视频播放器 */
+    .video-player, .audio-player {
+      width: 100%;
+      background: #000;
+    }
+
+    video {
+      width: 100%;
+      max-height: 600px;
+    }
+
+    audio {
+      width: 100%;
+      padding: 20px;
+    }
+
+    /* 图片查看器 */
+    .image-viewer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      background: #000;
+    }
+
+    .image-viewer img {
+      max-width: 100%;
+      max-height: 70vh;
+      border-radius: 8px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+
+    /* 文本查看器 */
+    .text-viewer {
+      padding: 30px;
+      background: white;
+    }
+
+    .text-content {
+      font-family: 'Courier New', monospace;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      line-height: 1.6;
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      max-height: 600px;
+      overflow-y: auto;
+    }
+
+    /* PDF查看器 */
+    .pdf-viewer {
+      width: 100%;
+      height: 700px;
+      border: none;
+    }
+
+    /* Excel表格样式 */
+    table[id^="excel-table-"] {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 14px;
+      background: white;
+      border: 2px solid #2196F3;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(33, 150, 243, 0.1);
+    }
+
+    table[id^="excel-table-"] th,
+    table[id^="excel-table-"] td {
+      border: 1px solid #2196F3;
+      padding: 8px 12px;
+      text-align: left;
+    }
+
+    table[id^="excel-table-"] th {
+      background-color: #2196F3;
+      color: white;
+      font-weight: 600;
+      border-color: #1976D2;
+    }
+
+    table[id^="excel-table-"] tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+
+    table[id^="excel-table-"] tr:hover {
+      background-color: #e3f2fd;
+    }
+    
+    table[id^="excel-table-"] tr:first-child th:first-child {
+      border-top-left-radius: 6px;
+    }
+    
+    table[id^="excel-table-"] tr:first-child th:last-child {
+      border-top-right-radius: 6px;
+    }
+
+    /* 文档提示 */
+    .document-info {
+      padding: 60px 40px;
+      text-align: center;
+    }
+
+    .document-icon {
+      font-size: 5rem;
+      margin-bottom: 20px;
+    }
+
+    .document-info h2 {
+      font-size: 1.5rem;
+      color: #333;
+      margin-bottom: 16px;
+    }
+
+    .document-info p {
+      color: #666;
+      line-height: 1.8;
+      margin-bottom: 30px;
+    }
+
+    .download-btn {
+      padding: 14px 32px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .download-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+    }
+
+    /* 加载动画 */
+    .loading {
+      padding: 80px;
+      text-align: center;
+      color: #666;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* 错误提示 */
+    .error-message {
+      padding: 60px 40px;
+      text-align: center;
+    }
+
+    .error-icon {
+      font-size: 4rem;
+      margin-bottom: 20px;
+    }
+
+    .error-message h2 {
+      color: #f44336;
+      margin-bottom: 16px;
+    }
+
+    .error-message p {
+      color: #666;
+      line-height: 1.6;
+    }
+
+    /* 信息面板 */
+    .info-panel {
+      padding: 24px;
+      background: #f8f9fa;
+      border-top: 1px solid #e0e0e0;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .info-label {
+      font-size: 0.85rem;
+      color: #666;
+      font-weight: 500;
+    }
+
+    .info-value {
+      font-size: 0.95rem;
+      color: #333;
+    }
+
+    /* 响应式 */
+    @media (max-width: 768px) {
+      .viewer-header {
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .action-buttons {
+        width: 100%;
+      }
+
+      .header-btn {
+        flex: 1;
+        justify-content: center;
+      }
+
+      .image-viewer {
+        padding: 20px;
+      }
+
+      .pdf-viewer {
+        height: 500px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="viewer-container">
+    <div class="viewer-header">
+      <div class="header-left">
+        <h1 id="viewerTitle">📁 File Viewer</h1>
+        <div class="file-name">
+          <span class="file-icon" id="fileIcon">📄</span>
+          <span id="fileName">Loading...</span>
+        </div>
+      </div>
+      <div class="action-buttons">
+        <button class="header-btn" id="downloadBtn" style="display: none;">
+          <span>⬇️</span>
+          <span id="downloadText">Download</span>
+        </button>
+        <button class="header-btn" onclick="goBack()">
+          <span>↩️</span>
+          <span id="backText">Back</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="contentArea" class="content-area">
+      <div class="loading">
+        <div class="spinner"></div>
+        <p id="loadingText">Loading file...</p>
+      </div>
+    </div>
+
+    <div id="infoPanel" class="info-panel" style="display: none;">
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="info-label" id="infoLabelFileName">File Name</span>
+          <span class="info-value" id="infoFileName">-</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label" id="infoLabelFileType">File Type</span>
+          <span class="info-value" id="infoFileType">-</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label" id="infoLabelFileSize">File Size</span>
+          <span class="info-value" id="infoFileSize">-</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label" id="infoLabelGeneratedAt">Generated At</span>
+          <span class="info-value" id="infoTimestamp">-</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Office文档预览库 -->
+  <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  
+  <script>
+    const t = (key, params, fallback) => window.PublicI18n?.t(key, params, fallback) || fallback || key
+    document.title = t('viewer.title', null, 'File Viewer')
+    window.addEventListener('DOMContentLoaded', () => {
+      const setText = (id, key, fallback) => {
+        const el = document.getElementById(id)
+        if (el) el.textContent = t(key, null, fallback)
+      }
+      setText('viewerTitle', 'viewer.title', 'File Viewer')
+      setText('downloadText', 'common.download', 'Download')
+      setText('backText', 'common.back', 'Back')
+      setText('loadingText', 'viewer.loadingFile', 'Loading file...')
+      setText('infoLabelFileName', 'viewer.fileName', 'File Name')
+      setText('infoLabelFileType', 'viewer.fileType', 'File Type')
+      setText('infoLabelFileSize', 'viewer.fileSize', 'File Size')
+      setText('infoLabelGeneratedAt', 'viewer.generatedAt', 'Generated At')
+    })
+
+    // API 配置
+    const getApiBaseUrl = () => {
+      const urlParams = new URLSearchParams(window.location.search)
+      const apiFromUrl = urlParams.get('api') || urlParams.get('apiBaseUrl')
+      if (apiFromUrl) {
+        try {
+          const normalized = apiFromUrl.endsWith('/api') ? apiFromUrl : apiFromUrl.replace(/\/$/, '') + '/api'
+          localStorage.setItem('apiBaseUrl', normalized)
+          console.log('使用URL参数指定的API地址:', normalized)
+          return normalized
+        } catch (e) {
+          console.warn('URL参数api无效，忽略:', apiFromUrl)
+        }
+      }
+
+      // 检查当前环境
+      const currentOrigin = window.location.origin
+      const hostname = window.location.hostname
+      const protocol = window.location.protocol
+      
+      // 如果是localhost或127.0.0.1，直接使用服务器地址（与保存时保持一致）
+      if (currentOrigin.includes('localhost') || currentOrigin.includes('127.0.0.1')) {
+        const serverUrl = 'http://111.229.158.50/api'
+        console.log('使用服务器地址（localhost环境）:', serverUrl)
+        return serverUrl
+      }
+      
+      // 优先使用手动配置的API地址
+      const manualApiUrl = localStorage.getItem('apiBaseUrl')
+      if (manualApiUrl) {
+        console.log('使用手动配置的API地址:', manualApiUrl)
+        return manualApiUrl
+      }
+      
+      // 优先使用环境变量或配置
+      if (window.API_BASE_URL) {
+        return window.API_BASE_URL
+      }
+      
+      // 使用当前域名，但API在/api路径（与保存时保持一致）
+      if (hostname && !hostname.includes('localhost') && !hostname.includes('127.0.0.1')) {
+        // 构建API地址：使用当前host（包含端口），/api路径
+        const apiUrl = `http://${window.location.host}/api`
+        console.log('自动检测API地址:', apiUrl)
+        return apiUrl
+      }
+      
+      // 本地开发环境，使用服务器地址
+      return 'http://111.229.158.50/api'
+    }
+
+    // 从服务器获取内容
+    async function getContentFromServer(id) {
+      const apiBaseUrl = getApiBaseUrl()
+      console.log('尝试从服务器获取，API地址:', apiBaseUrl, '文件ID:', id)
+      
+      const tryFetch = async (baseUrl) => {
+        try {
+          const apiPath = baseUrl.endsWith('/api') ? `${baseUrl}/content/${id}` : `${baseUrl}/api/content/${id}`
+          console.log('[getContentFromServer] 尝试请求:', apiPath)
+          const response = await fetch(apiPath, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+          })
+          
+          if (response.ok) {
+            const result = await response.json()
+            if (result.success) return result.data
+          }
+          return null
+        } catch (e) {
+          console.warn(`请求 ${baseUrl} 失败:`, e.message)
+          return null
+        }
+      }
+
+      // 1. 尝试主API
+      let data = await tryFetch(apiBaseUrl)
+      if (data) return data
+
+      // 2. 如果主API失败，尝试备用API (如果是3000端口，尝试80端口；反之亦然)
+      const currentHostname = window.location.hostname
+      if (currentHostname) {
+        let fallbackUrl = ""
+        if (apiBaseUrl.includes(':3000')) {
+          // 如果当前用的是3000，备用用80
+          fallbackUrl = `${window.location.protocol}//${currentHostname}/api`
+        } else if (!apiBaseUrl.includes(':')) {
+          // 如果当前用的是80（无端口），备用用3000
+          fallbackUrl = `${window.location.protocol}//${currentHostname}:3000/api`
+        }
+
+        if (fallbackUrl && fallbackUrl !== apiBaseUrl) {
+          console.log('主API请求失败，尝试备用API:', fallbackUrl)
+          data = await tryFetch(fallbackUrl)
+          if (data) {
+            console.log('✓ 备用API请求成功')
+            // 更新本地缓存的API地址，下次直接用
+            localStorage.setItem('apiBaseUrl', fallbackUrl)
+            return data
+          }
+        }
+      }
+
+      return null
+    }
+
+    // IndexedDB 工具函数
+    const DB_NAME = 'QRCodeStorage'
+    const DB_VERSION = 1
+    const STORE_NAME = 'files'
+
+    // 打开数据库
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION)
+        
+        request.onerror = () => reject(request.error)
+        request.onsuccess = () => resolve(request.result)
+        
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME, { keyPath: 'id' })
+          }
+        }
+      })
+    }
+
+    // 从IndexedDB读取文件
+    async function getFileFromIndexedDB(id) {
+      try {
+        const db = await openDB()
+        const transaction = db.transaction([STORE_NAME], 'readonly')
+        const store = transaction.objectStore(STORE_NAME)
+        
+        return new Promise((resolve, reject) => {
+          const request = store.get(id)
+          
+          request.onsuccess = () => {
+            if (request.result) {
+              console.log('✓ 从IndexedDB读取成功:', id)
+              resolve(request.result.data)
+            } else {
+              console.log('IndexedDB中未找到文件:', id)
+              resolve(null)
+            }
+          }
+          
+          request.onerror = () => {
+            console.error('✗ IndexedDB读取失败:', request.error)
+            reject(request.error)
+          }
+        })
+      } catch (error) {
+        console.error('IndexedDB操作失败:', error)
+        return null
+      }
+    }
+
+    // 获取文件或文件夹ID
+    function normalizeContentId(rawId) {
+      if (rawId === null || rawId === undefined) return null
+      let id = String(rawId)
+      try {
+        id = decodeURIComponent(id)
+      } catch (e) {}
+      id = id.trim()
+      if (!id) return null
+      id = id.replace(/\/+$/, '')
+      const qIndex = id.indexOf('?')
+      if (qIndex >= 0) id = id.slice(0, qIndex)
+      return id.trim() || null
+    }
+
+    function getFileIdFromUrl() {
+      const hash = window.location.hash
+      console.log('当前hash:', hash)
+      
+      let match = hash.match(/\/view\/(.+)/)
+      if (match) {
+        const fileId = normalizeContentId(match[1])
+        if (!fileId) return null
+        console.log('解析到文件ID:', fileId)
+        return { type: 'file', id: fileId }
+      }
+      
+      match = hash.match(/\/folder\/(.+)/)
+      if (match) {
+        const folderId = normalizeContentId(match[1])
+        if (!folderId) return null
+        console.log('解析到文件夹ID:', folderId)
+        return { type: 'folder', id: folderId }
+      }
+      
+      match = hash.match(/\/dynamic\/(.+)/)
+      if (match) {
+        const dynamicId = normalizeContentId(match[1])
+        if (!dynamicId) return null
+        console.log('解析到活码ID:', dynamicId)
+        return { type: 'dynamic', id: dynamicId }
+      }
+      
+      console.log('无法解析URL，hash为空或格式不正确')
+      return null
+    }
+
+    // 格式化文件大小
+    function formatFileSize(bytes) {
+      if (!bytes) return '-'
+      if (bytes < 1024) return bytes + ' B'
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB'
+      return (bytes / (1024 * 1024)).toFixed(2) + ' MB'
+    }
+
+    // 格式化时间
+    function formatDate(timestamp) {
+      const locale = window.PublicI18n?.locale === 'zh_CN' ? 'zh-CN' : window.PublicI18n?.locale
+      return new Date(timestamp).toLocaleString(locale || undefined)
+    }
+
+    // 获取文件图标
+    function getFileIcon(fileName, fileType) {
+      if (!fileName) return '📄'
+      
+      const ext = fileName.split('.').pop().toLowerCase()
+      
+      // 视频
+      if (fileType?.startsWith('video/') || ['mp4', 'avi', 'mov', 'mkv', 'flv', 'wmv'].includes(ext)) {
+        return '🎬'
+      }
+      // 音频
+      if (fileType?.startsWith('audio/') || ['mp3', 'wav', 'flac', 'aac', 'ogg'].includes(ext)) {
+        return '🎵'
+      }
+      // 图片
+      if (fileType?.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext)) {
+        return '🖼️'
+      }
+      // PDF
+      if (ext === 'pdf') return '📕'
+      
+      // 文档
+      if (['doc', 'docx'].includes(ext)) return '📘'
+      if (['xls', 'xlsx'].includes(ext)) return '📗'
+      if (['ppt', 'pptx'].includes(ext)) return '📙'
+      if (['txt', 'md'].includes(ext)) return '📝'
+      
+      return '📄'
+    }
+
+    // 返回
+    function goBack() {
+      if (window.history.length > 1) {
+        window.history.back()
+      } else {
+        window.close()
+      }
+    }
+
+    // 加载活码内容
+    async function loadDynamicQR(dynamicId) {
+      try {
+        console.log('加载活码:', dynamicId)
+        
+        let qr = null
+        let qrList = []
+
+        // 1. 优先从localStorage获取活码列表
+        const savedData = localStorage.getItem('dynamicQRList')
+        if (savedData) {
+          try {
+            qrList = JSON.parse(savedData)
+            qr = qrList.find(item => item.id === dynamicId)
+            if (qr) {
+              console.log('✓ 从localStorage获取活码成功')
+            }
+          } catch (e) {
+            console.error('解析localStorage活码数据失败:', e)
+          }
+        }
+
+        // 2. 如果本地找不到，尝试从服务器获取
+        if (!qr) {
+          console.log('本地未找到活码，尝试从服务器获取...')
+          const serverData = await getContentFromServer(dynamicId)
+          if (serverData) {
+            qr = serverData
+            console.log('✓ 从服务器获取活码成功')
+            if (!Array.isArray(qrList)) qrList = []
+            const existsIndex = qrList.findIndex(item => item && item.id === dynamicId)
+            if (existsIndex === -1) {
+              qrList.push(qr)
+            }
+          }
+        }
+        
+        if (!qr) {
+          showError('活码未找到', '该活码不存在或已删除，或者在其他设备生成且未同步到服务器。')
+          return
+        }
+
+        // 更新头部信息
+        document.getElementById('fileIcon').textContent = '📱'
+        document.getElementById('fileName').textContent = qr.title
+        document.getElementById('downloadBtn').style.display = 'none'
+
+        // 根据模板类型渲染内容
+        const contentArea = document.getElementById('contentArea')
+        contentArea.innerHTML = `
+          <div class="document-info">
+            <div class="document-icon">📱</div>
+            <h2>${qr.title}</h2>
+            <div class="dynamic-content">
+              <table class="spec-table">
+                <tbody>
+                  ${Object.entries(qr.data).map(([key, value]) => `
+                    <tr>
+                      <td class="spec-label">${key}</td>
+                      <td class="spec-value">${value || '-'}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `
+
+        // 显示信息面板
+        document.getElementById('infoFileName').textContent = qr.title
+        document.getElementById('infoFileType').textContent = t('viewer.dynamicType', null, 'Dynamic QR')
+        document.getElementById('infoFileSize').textContent = '-'
+        document.getElementById('infoTimestamp').textContent = formatDate(qr.createTime)
+        document.getElementById('infoPanel').style.display = 'block'
+
+        // 更新扫码次数
+        qr.scanCountToday = (qr.scanCountToday || 0) + 1
+        qr.scanCountTotal = (qr.scanCountTotal || 0) + 1
+        if (Array.isArray(qrList) && qrList.length > 0) {
+          const index = qrList.findIndex(item => item && item.id === dynamicId)
+          if (index >= 0) qrList[index] = qr
+          localStorage.setItem('dynamicQRList', JSON.stringify(qrList))
+        }
+
+      } catch (error) {
+        console.error('加载活码失败:', error)
+        showError('加载失败', '活码数据可能已损坏\n错误: ' + error.message)
+      }
+    }
+
+    // 加载文件夹
+    async function loadFolder(folderId) {
+      try {
+        console.log('加载文件夹:', folderId)
+        // 查找该文件夹下的所有文件
+        const files = []
+        let folderName = t('viewer.folderDefaultName', null, 'Folder')
+        
+        // 从localStorage查找（支持 _file_ 和 _image_ 两种模式）
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key && (key.startsWith(folderId + '_file_') || key.startsWith(folderId + '_image_'))) {
+            const fileDataStr = localStorage.getItem(key)
+            if (fileDataStr) {
+              try {
+                const fileData = JSON.parse(fileDataStr)
+                
+                // 检查是否标记为存储在IndexedDB中
+                if (fileData._indexedDB) {
+                  console.log('检测到文件存储在IndexedDB中，开始读取:', key)
+                  try {
+                    const indexedDBData = await getFileFromIndexedDB(key)
+                    if (indexedDBData) {
+                      // 从key中提取索引，用于排序（支持 _file_ 和 _image_）
+                      const indexMatch = key.match(/(?:file_|image_)(\d+)$/)
+                      const index = indexMatch ? parseInt(indexMatch[1]) : 999
+                      files.push({ id: key, index, ...indexedDBData })
+                      if (indexedDBData.folderName) {
+                        folderName = indexedDBData.folderName
+                      }
+                    }
+                  } catch (indexedDBError) {
+                    console.error('从IndexedDB读取文件失败:', key, indexedDBError)
+                  }
+                } else {
+                  // 数据在localStorage中
+                  // 从key中提取索引，用于排序（支持 _file_ 和 _image_）
+                  const indexMatch = key.match(/(?:file_|image_)(\d+)$/)
+                  const index = indexMatch ? parseInt(indexMatch[1]) : 999
+                  files.push({ id: key, index, ...fileData })
+                  if (fileData.folderName) {
+                    folderName = fileData.folderName
+                  }
+                }
+              } catch (error) {
+                console.error('解析文件数据失败:', key, error)
+              }
+            }
+          }
+        }
+        
+        // 如果localStorage中没有找到，尝试从IndexedDB直接查找
+        if (files.length === 0) {
+          console.log('localStorage中未找到文件，尝试从IndexedDB查找...')
+          try {
+            const db = await openDB()
+            const transaction = db.transaction([STORE_NAME], 'readonly')
+            const store = transaction.objectStore(STORE_NAME)
+            
+            // 获取所有文件
+            const allFiles = await new Promise((resolve, reject) => {
+              const request = store.getAll()
+              request.onsuccess = () => resolve(request.result || [])
+              request.onerror = () => reject(request.error)
+            })
+            
+            // 筛选出属于该文件夹的文件（支持 _file_ 和 _image_）
+            const folderFiles = allFiles.filter(file => {
+              return file.id && (file.id.startsWith(folderId + '_file_') || file.id.startsWith(folderId + '_image_'))
+            })
+            
+            console.log('从IndexedDB找到文件数量:', folderFiles.length)
+            
+            folderFiles.forEach(file => {
+              // 从key中提取索引，用于排序（支持 _file_ 和 _image_）
+              const indexMatch = file.id.match(/(?:file_|image_)(\d+)$/)
+              const index = indexMatch ? parseInt(indexMatch[1]) : 999
+              files.push({ id: file.id, index, ...file.data })
+              if (file.data && file.data.folderName) {
+                folderName = file.data.folderName
+              }
+            })
+          } catch (indexedDBError) {
+            console.error('从IndexedDB查找文件夹文件失败:', indexedDBError)
+          }
+        }
+        
+        // 如果本地存储都没有，尝试从服务器获取（支持 _file_ 和 _image_）
+        if (files.length === 0) {
+          console.log('本地存储未找到，尝试从服务器获取文件夹文件...')
+          // 尝试获取文件夹中的第一个文件（通过索引0，先尝试 _file_，再尝试 _image_）
+          let firstFileId = `${folderId}_file_0`
+          let serverFileData = await getContentFromServer(firstFileId)
+          console.log('尝试 _file_ 模式结果:', serverFileData ? '找到' : '未找到')
+          
+          // 如果 _file_ 模式没有找到，尝试 _image_ 模式
+          if (!serverFileData || (serverFileData.folderId && serverFileData.folderId !== folderId)) {
+            console.log('_file_ 模式未找到，尝试 _image_ 模式...')
+            firstFileId = `${folderId}_image_0`
+            serverFileData = await getContentFromServer(firstFileId)
+            console.log('尝试 _image_ 模式结果:', serverFileData ? '找到' : '未找到')
+          }
+          
+          if (serverFileData && (!serverFileData.folderId || serverFileData.folderId === folderId)) {
+            // 如果服务器有文件，说明文件夹在服务器上
+            // 确定文件类型前缀（_file_ 或 _image_）
+            const prefix = firstFileId.includes('_image_') ? '_image_' : '_file_'
+            console.log('确定文件前缀:', prefix, '开始获取所有文件...')
+            
+            // 尝试获取所有文件（通过循环索引）
+            for (let i = 0; i < 100; i++) { // 最多尝试100个文件
+              const fileId = `${folderId}${prefix}${i}`
+              const fileData = await getContentFromServer(fileId)
+              if (fileData && (!fileData.folderId || fileData.folderId === folderId)) {
+                files.push({ id: fileId, index: i, ...fileData })
+                if (fileData.folderName) {
+                  folderName = fileData.folderName
+                }
+                console.log(`找到文件 ${i}:`, fileData.fileName || fileId)
+              } else {
+                console.log(`文件 ${i} 未找到，停止查找`)
+                break // 没有更多文件了
+              }
+            }
+          } else {
+            console.log('服务器上未找到文件夹文件（_file_ 和 _image_ 模式都尝试了）')
+          }
+        }
+
+        // 按索引排序
+        files.sort((a, b) => a.index - b.index)
+        
+        console.log('找到文件数量:', files.length)
+        console.log('文件列表:', files.map(f => f.fileName))
+
+        if (files.length === 0) {
+          // 收集调试信息
+          const allKeys = []
+          const matchingKeys = []
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i)
+            if (key) {
+              allKeys.push(key)
+              if (key.includes('folder_') || key.includes('_file_') || key.includes('_image_')) {
+                matchingKeys.push(key)
+              }
+            }
+          }
+          
+          let debugInfo = '调试信息：\n'
+          debugInfo += '文件夹ID: ' + folderId + '\n'
+          debugInfo += 'localStorage数量: ' + localStorage.length + '\n'
+          debugInfo += '查找模式: ' + folderId + '_file_* 或 ' + folderId + '_image_*\n\n'
+          debugInfo += '相关key（前20个）:\n'
+          matchingKeys.slice(0, 20).forEach(key => {
+            debugInfo += '  - ' + key + '\n'
+          })
+          
+          if (matchingKeys.length === 0) {
+            debugInfo += '\n未找到任何包含"folder_"、"file_"或"image_"的key\n'
+            debugInfo += '可能的原因：\n'
+            debugInfo += '1. 文件保存失败\n'
+            debugInfo += '2. 文件保存在不同的浏览器会话中\n'
+            debugInfo += '3. 浏览器数据被清除\n'
+            debugInfo += '4. 文件保存在IndexedDB中但标记丢失\n\n'
+            debugInfo += '建议：\n'
+            debugInfo += '• 重新生成二维码\n'
+            debugInfo += '• 检查浏览器控制台的错误信息'
+          }
+          
+          showError('文件夹为空', '该文件夹没有找到任何文件\n\n' + debugInfo)
+          return
+        }
+
+        // 更新头部
+        document.getElementById('fileIcon').textContent = '📁'
+        document.getElementById('fileName').textContent = folderName
+        document.getElementById('downloadBtn').style.display = 'none'
+
+        // 渲染文件列表
+        const contentArea = document.getElementById('contentArea')
+        contentArea.innerHTML = `
+          <div style="padding: 30px;">
+            <h2 style="margin-bottom: 20px; color: #333;">📁 ${folderName}</h2>
+            <p style="color: #666; margin-bottom: 30px;">共 ${files.length} 个文件</p>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px;">
+              ${files.map((file, index) => `
+                <div style="background: #f8f9fa; border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.3s; box-shadow: 0 2px 8px rgba(0,0,0,0.08);" 
+                     onclick="window.location.hash = '/view/' + '${file.id}'"
+                     onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.12)';"
+                     onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.08)';">
+                  <div style="font-size: 3rem; margin-bottom: 12px;">${getFileIcon(file.fileName, file.fileType)}</div>
+                  <p style="font-size: 0.9rem; color: #333; margin-bottom: 6px; word-break: break-word;">${file.fileName}</p>
+                  <p style="font-size: 0.85rem; color: #999;">${formatFileSize(file.fileSize)}</p>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `
+
+        // 显示信息面板
+        document.getElementById('infoFileName').textContent = folderName
+        document.getElementById('infoFileType').textContent = t('viewer.folderType', null, 'Folder')
+        document.getElementById('infoFileSize').textContent = t('viewer.filesCount', { count: files.length }, `${files.length} files`)
+        document.getElementById('infoTimestamp').textContent = formatDate(files[0].timestamp)
+        document.getElementById('infoPanel').style.display = 'block'
+
+      } catch (error) {
+        console.error('加载文件夹失败:', error)
+        showError('加载失败', '文件夹数据可能已损坏')
+      }
+    }
+
+    // 显示错误
+    function showError(title, message) {
+      const contentArea = document.getElementById('contentArea')
+      contentArea.innerHTML = `
+        <div class="error-message">
+          <div class="error-icon">❌</div>
+          <h2>${title}</h2>
+          <p>${message.replace(/\n/g, '<br>')}</p>
+        </div>
+      `
+    }
+
+    // 渲染视频
+    function renderVideo(fileData) {
+      console.log('========== 开始渲染视频 ==========')
+      console.log('视频文件数据:', {
+        fileName: fileData.fileName,
+        fileType: fileData.fileType,
+        hasDataURL: !!fileData.dataURL,
+        hasData: !!fileData.data,
+        dataURLPrefix: fileData.dataURL ? fileData.dataURL.substring(0, 100) : '无',
+        dataURLLength: fileData.dataURL ? fileData.dataURL.length : 0
+      })
+      
+      const contentArea = document.getElementById('contentArea')
+      
+      // 确保dataURL存在
+      if (!fileData.dataURL && !fileData.data) {
+        console.error('视频数据缺少dataURL和data字段')
+        showError('数据不完整', '视频数据缺少内容')
+        return
+      }
+      
+      // 如果只有data字段，使用它作为dataURL
+      if (!fileData.dataURL && fileData.data) {
+        fileData.dataURL = fileData.data
+        console.log('使用data字段作为dataURL')
+      }
+      
+      // 显示加载提示
+      contentArea.innerHTML = `
+        <div style="padding: 60px; text-align: center;">
+          <div class="spinner"></div>
+          <p style="margin-top: 20px; color: #666;">正在加载视频...</p>
+        </div>
+      `
+      
+      const fileName = fileData.fileName || ''
+      const ext = fileName.split('.').pop().toLowerCase()
+      const fileType = fileData.fileType || 'video/mp4'
+      
+      // 检查dataURL格式
+      let dataURL = fileData.dataURL
+      if (!dataURL.startsWith('data:')) {
+        // 如果不是data URL格式，尝试添加前缀
+        const mimeType = ext === 'mov' ? 'video/quicktime' : fileType
+        dataURL = `data:${mimeType};base64,${dataURL}`
+        console.log('修复dataURL格式，添加前缀:', mimeType)
+      }
+      
+      // 尝试使用Blob URL播放（更好的兼容性）
+      let blobURL = null
+      try {
+        // 从dataURL提取base64数据
+        let base64Data = dataURL
+        let mimeType = fileType
+        
+        if (dataURL.includes(',')) {
+          const parts = dataURL.split(',')
+          const header = parts[0]
+          base64Data = parts[1]
+          
+          // 从header提取MIME类型
+          const mimeMatch = header.match(/data:([^;]+)/)
+          if (mimeMatch) {
+            mimeType = mimeMatch[1]
+          }
+        } else {
+          // 如果没有逗号，整个字符串都是base64
+          base64Data = dataURL.replace(/^data:[^;]*;base64,/, '')
+        }
+        
+        console.log('提取的MIME类型:', mimeType)
+        console.log('Base64数据长度:', base64Data.length)
+        
+        // 将base64转换为二进制
+        const byteCharacters = atob(base64Data)
+        const byteNumbers = new Array(byteCharacters.length)
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i)
+        }
+        const byteArray = new Uint8Array(byteNumbers)
+        
+        // 创建Blob - 对于MOV文件，尝试多种MIME类型
+        let blob
+        if (ext === 'mov') {
+          // MOV文件：优先使用quicktime，但也尝试mp4
+          blob = new Blob([byteArray], { type: 'video/quicktime' })
+          console.log('创建MOV Blob，类型: video/quicktime')
+        } else {
+          blob = new Blob([byteArray], { type: mimeType || fileType })
+          console.log('创建Blob，类型:', mimeType || fileType)
+        }
+        
+        blobURL = URL.createObjectURL(blob)
+        console.log('Blob URL创建成功:', blobURL.substring(0, 50) + '...')
+        
+      } catch (blobError) {
+        console.error('创建Blob URL失败:', blobError)
+        blobURL = null
+      }
+      
+      // 构建视频HTML
+      let sourcesHTML = ''
+      if (blobURL) {
+        // 使用Blob URL
+        if (ext === 'mov') {
+          sourcesHTML = `
+            <source src="${blobURL}" type="video/quicktime">
+            <source src="${blobURL}" type="video/mp4">
+          `
+        } else {
+          sourcesHTML = `<source src="${blobURL}" type="${fileType}">`
+        }
+      } else {
+        // 降级到直接使用dataURL
+        const safeDataURL = dataURL.replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+        if (ext === 'mov') {
+          sourcesHTML = `
+            <source src="${safeDataURL}" type="video/quicktime">
+            <source src="${safeDataURL}" type="video/mp4">
+          `
+        } else {
+          sourcesHTML = `<source src="${safeDataURL}" type="${fileType}">`
+        }
+      }
+      
+      // 检查是否为MOV格式
+      const isMOV = ext === 'mov'
+      
+      // 根据视频格式生成不同的HTML
+      if (isMOV) {
+        // MOV格式：显示文件下载区域，不显示video标签（避免黑屏）
+        const downloadDataURL = blobURL || dataURL
+        contentArea.innerHTML = `
+          <div style="padding: 40px; text-align: center; background: #f9f9f9; border-radius: 12px;">
+            <div style="font-size: 64px; margin-bottom: 20px;">📹</div>
+            <h2 style="margin: 0 0 10px 0; color: #333; font-size: 1.5rem;">${fileName}</h2>
+            <p style="margin: 0 0 30px 0; color: #666; font-size: 1rem;">视频文件</p>
+            <a href="${downloadDataURL}" download="${fileName}" style="display: inline-block; padding: 14px 32px; background: #2196F3; color: white; text-decoration: none; border-radius: 8px; font-size: 1rem; font-weight: 500; box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3); transition: all 0.3s;">
+              ⬇️ 下载视频
+            </a>
+            <div style="margin-top: 30px; padding: 16px; background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px; text-align: left; max-width: 600px; margin-left: auto; margin-right: auto;">
+              <p style="margin: 0 0 10px 0; color: #856404; font-size: 1rem; font-weight: bold;">
+                ⚠️ 浏览器不支持MOV格式播放
+              </p>
+              <p style="margin: 0; color: #856404; font-size: 0.95rem; line-height: 1.6;">
+                此视频为MOV格式，在大多数浏览器中无法直接播放。请点击上方的<strong>"下载视频"</strong>按钮下载视频，然后使用播放器（如VLC、QuickTime等）打开。
+              </p>
+              <p style="margin: 10px 0 0 0; color: #856404; font-size: 0.9rem;">
+                💡 <strong>建议：</strong>如需在线播放，请将视频转换为MP4格式后重新上传。
+              </p>
+            </div>
+          </div>
+        `
+        return // MOV格式不需要后续的video元素处理
+      } else {
+        // 其他格式：正常显示video标签
+        const videoInfo = `
+          <div id="video-info" style="padding: 20px; background: #f5f5f5; margin-top: 10px; border-radius: 8px;">
+            <p style="margin: 5px 0; color: #666; font-size: 0.9rem;">
+              <strong>提示：</strong>如果视频无法播放，请尝试：
+            </p>
+            <ul style="margin: 10px 0; padding-left: 20px; color: #666; font-size: 0.9rem;">
+              <li>使用Chrome或Safari浏览器</li>
+              <li>点击上方"下载"按钮下载视频后使用播放器打开</li>
+            </ul>
+          </div>
+        `
+        
+        contentArea.innerHTML = `
+          <video id="video-player" class="video-player" controls preload="auto" playsinline>
+            ${sourcesHTML}
+            您的浏览器不支持视频播放。请尝试使用其他浏览器或下载视频文件。
+          </video>
+          ${videoInfo}
+        `
+      }
+      
+      // 添加详细的错误处理和事件监听（仅对非MOV格式）
+      const videoElement = document.getElementById('video-player')
+      if (videoElement) {
+        let errorShown = false
+        
+        // 加载事件
+        videoElement.addEventListener('loadstart', () => {
+          console.log('视频开始加载')
+        })
+        
+        videoElement.addEventListener('loadedmetadata', () => {
+          console.log('视频元数据加载成功')
+          console.log('视频时长:', videoElement.duration, '秒')
+          console.log('视频尺寸:', videoElement.videoWidth, 'x', videoElement.videoHeight)
+        })
+        
+        videoElement.addEventListener('loadeddata', () => {
+          console.log('视频数据加载成功')
+        })
+        
+        videoElement.addEventListener('canplay', () => {
+          console.log('视频可以播放')
+        })
+        
+        videoElement.addEventListener('canplaythrough', () => {
+          console.log('视频可以流畅播放')
+        })
+        
+        videoElement.addEventListener('playing', () => {
+          console.log('视频开始播放')
+        })
+        
+        // 错误处理
+        videoElement.onerror = (e) => {
+          if (errorShown) return
+          errorShown = true
+          
+          console.error('========== 视频播放错误 ==========')
+          console.error('错误事件:', e)
+          console.error('错误对象:', videoElement.error)
+          console.error('网络状态:', videoElement.networkState)
+          console.error('就绪状态:', videoElement.readyState)
+          console.error('当前源:', videoElement.currentSrc)
+          
+          // 清理Blob URL
+          if (blobURL) {
+            URL.revokeObjectURL(blobURL)
+          }
+          
+          let errorMsg = '视频无法播放\n\n'
+          let errorCode = null
+          
+          if (videoElement.error) {
+            errorCode = videoElement.error.code
+            switch (errorCode) {
+              case 1: // MEDIA_ERR_ABORTED
+                errorMsg += '错误代码: 1 (MEDIA_ERR_ABORTED)\n视频加载被中止'
+                break
+              case 2: // MEDIA_ERR_NETWORK
+                errorMsg += '错误代码: 2 (MEDIA_ERR_NETWORK)\n网络错误，无法加载视频'
+                break
+              case 3: // MEDIA_ERR_DECODE
+                errorMsg += '错误代码: 3 (MEDIA_ERR_DECODE)\n视频解码失败\n\n可能原因：\n1. 视频格式不支持\n2. 视频文件损坏\n3. 浏览器不支持该格式（特别是MOV格式）\n\n建议：\n• 尝试使用Chrome或Safari浏览器\n• 或下载视频文件后使用播放器打开'
+                break
+              case 4: // MEDIA_ERR_SRC_NOT_SUPPORTED
+                errorMsg += '错误代码: 4 (MEDIA_ERR_SRC_NOT_SUPPORTED)\n视频格式不支持\n\nMOV格式在大多数浏览器中无法直接播放\n建议：\n• 使用Safari浏览器（Mac/iOS）\n• 或下载视频文件后使用播放器打开\n• 或转换为MP4格式后重新上传'
+                break
+              default:
+                errorMsg += '错误代码: ' + errorCode + '\n未知错误'
+            }
+          } else {
+            errorMsg += '无法获取错误详情'
+          }
+          
+          console.error('错误信息:', errorMsg)
+          
+          contentArea.innerHTML = `
+            <div class="error-message">
+              <div class="error-icon">❌</div>
+              <h2>视频播放失败</h2>
+              <p style="white-space: pre-line; text-align: left; max-width: 600px; margin: 0 auto;">${errorMsg}</p>
+              <div style="margin-top: 20px;">
+                <button class="download-btn" onclick="downloadFile()" style="margin-right: 10px;">
+                  <span>⬇️</span>
+                  <span>下载视频</span>
+                </button>
+                <button class="download-btn" onclick="location.reload()" style="background: #666;">
+                  <span>🔄</span>
+                  <span>刷新重试</span>
+                </button>
+              </div>
+            </div>
+          `
+        }
+        
+        // 超时检测：如果10秒后还没有开始播放，显示提示
+        setTimeout(() => {
+          if (videoElement.readyState < 2 && !errorShown) {
+            console.warn('视频加载超时，readyState:', videoElement.readyState)
+            const infoDiv = document.getElementById('video-info')
+            if (infoDiv) {
+              infoDiv.innerHTML = `
+                <p style="margin: 5px 0; color: #f44336; font-size: 0.9rem;">
+                  <strong>⚠️ 视频加载较慢或可能无法播放</strong>
+                </p>
+                <p style="margin: 5px 0; color: #666; font-size: 0.9rem;">
+                  MOV格式在某些浏览器中可能无法直接播放，建议下载后使用播放器打开。
+                </p>
+              `
+            }
+          }
+        }, 10000)
+        
+        // 页面卸载时清理Blob URL
+        window.addEventListener('beforeunload', () => {
+          if (blobURL) {
+            URL.revokeObjectURL(blobURL)
+          }
+        })
+      }
+      
+      console.log('========== 视频渲染完成 ==========')
+    }
+
+    // 渲染音频
+    function renderAudio(fileData) {
+      const contentArea = document.getElementById('contentArea')
+      contentArea.innerHTML = `
+        <div class="audio-player">
+          <audio controls autoplay style="width: 100%; padding: 40px;">
+            <source src="${fileData.dataURL}" type="${fileData.fileType}">
+            您的浏览器不支持音频播放
+          </audio>
+        </div>
+      `
+    }
+
+    // 渲染图片
+    function renderImage(fileData) {
+      const contentArea = document.getElementById('contentArea')
+      contentArea.innerHTML = `
+        <div class="image-viewer">
+          <img src="${fileData.dataURL}" alt="${fileData.fileName}">
+        </div>
+      `
+    }
+
+    // 渲染PDF
+    function renderPDF(fileData) {
+      const contentArea = document.getElementById('contentArea')
+      contentArea.innerHTML = `
+        <iframe class="pdf-viewer" src="${fileData.dataURL}"></iframe>
+      `
+    }
+
+    // 渲染Word文档
+    function renderWord(fileData) {
+      const contentArea = document.getElementById('contentArea')
+      contentArea.innerHTML = `
+        <div class="document-info" style="padding: 40px; text-align: center;">
+          <div style="margin-bottom: 20px;">
+            <div class="spinner"></div>
+            <p style="margin-top: 20px; color: #666;">正在加载Word文档预览...</p>
+          </div>
+        </div>
+      `
+      
+      // 将base64转换为ArrayBuffer
+      const base64Data = fileData.dataURL.split(',')[1]
+      const byteCharacters = atob(base64Data)
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
+      }
+      const byteArray = new Uint8Array(byteNumbers)
+      const arrayBuffer = byteArray.buffer
+      
+      // 使用mammoth.js将Word文档转换为HTML
+      if (typeof mammoth !== 'undefined') {
+        mammoth.convertToHtml({ arrayBuffer: arrayBuffer })
+          .then(function(result) {
+            const html = result.value
+            const messages = result.messages
+            contentArea.innerHTML = `
+              <div class="text-viewer" style="padding: 30px; background: white;">
+                <div class="text-content" style="max-width: 900px; margin: 0 auto; text-align: left;">
+                  ${html}
+                </div>
+                ${messages.length > 0 ? '<div style="margin-top: 20px; padding: 10px; background: #fff3cd; border-radius: 4px; color: #856404;"><small>⚠️ 部分内容可能无法正确显示</small></div>' : ''}
+              </div>
+            `
+          })
+          .catch(function(error) {
+            console.error('Word预览失败:', error)
+            renderDocumentFallback(fileData, 'Word文档')
+          })
+      } else {
+        console.error('mammoth.js未加载')
+        renderDocumentFallback(fileData, 'Word文档')
+      }
+    }
+
+    // 渲染Excel文档
+    function renderExcel(fileData) {
+      const contentArea = document.getElementById('contentArea')
+      contentArea.innerHTML = `
+        <div class="document-info" style="padding: 40px; text-align: center;">
+          <div style="margin-bottom: 20px;">
+            <div class="spinner"></div>
+            <p style="margin-top: 20px; color: #666;">正在加载Excel文档预览...</p>
+          </div>
+        </div>
+      `
+      
+      // 将base64转换为ArrayBuffer
+      const base64Data = fileData.dataURL.split(',')[1]
+      const byteCharacters = atob(base64Data)
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
+      }
+      const byteArray = new Uint8Array(byteNumbers)
+      const arrayBuffer = byteArray.buffer
+      
+      // 使用xlsx.js将Excel文档转换为HTML表格
+      if (typeof XLSX !== 'undefined') {
+        try {
+          const workbook = XLSX.read(arrayBuffer, { type: 'array' })
+          let html = '<div class="text-viewer" style="padding: 30px; background: white; overflow-x: auto;"><div style="max-width: 100%;">'
+          
+          // 遍历所有工作表
+          workbook.SheetNames.forEach(function(sheetName) {
+            const worksheet = workbook.Sheets[sheetName]
+            const htmlTable = XLSX.utils.sheet_to_html(worksheet, { id: 'excel-table-' + sheetName })
+            html += `<div style="margin-bottom: 40px;"><h3 style="margin-bottom: 15px; color: #333;">${sheetName}</h3>${htmlTable}</div>`
+          })
+          
+          html += '</div></div>'
+          contentArea.innerHTML = html
+        } catch (error) {
+          console.error('Excel预览失败:', error)
+          renderDocumentFallback(fileData, 'Excel文档')
+        }
+      } else {
+        console.error('xlsx.js未加载')
+        renderDocumentFallback(fileData, 'Excel文档')
+      }
+    }
+
+    // 渲染PPT文档
+    function renderPPT(fileData) {
+      // PPT文档使用简单的文档信息显示，不进行预览
+      renderDocumentFallback(fileData, 'PowerPoint文档')
+    }
+
+    // 文档预览回退方案
+    function renderDocumentFallback(fileData, docType) {
+      const contentArea = document.getElementById('contentArea')
+      const safeFileName = (fileData.fileName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      const safeFileType = (fileData.fileType || '未知').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      
+      contentArea.innerHTML = `
+        <div class="document-info">
+          <div class="document-icon">${getFileIcon(fileData.fileName, fileData.fileType)}</div>
+          <h2>${safeFileName}</h2>
+          <p>
+            文件类型: ${safeFileType}<br>
+            文件大小: ${formatFileSize(fileData.fileSize)}<br><br>
+            此文件类型需要下载后使用对应软件打开<br>
+            或使用在线文档查看器
+          </p>
+          <button class="download-btn" onclick="downloadFile()">
+            <span>⬇️</span>
+            <span>下载文件</span>
+          </button>
+        </div>
+      `
+    }
+
+    // 渲染文本
+    function renderText(fileData) {
+      // 从dataURL提取文本内容
+      const base64Data = fileData.dataURL.split(',')[1]
+      const text = decodeURIComponent(escape(atob(base64Data)))
+      
+      const contentArea = document.getElementById('contentArea')
+      contentArea.innerHTML = `
+        <div class="text-viewer">
+          <div class="text-content">${text}</div>
+        </div>
+      `
+    }
+
+    // 渲染文档
+    function renderDocument(fileData) {
+      try {
+        console.log('开始渲染文档:', fileData.fileName)
+        const contentArea = document.getElementById('contentArea')
+        if (!contentArea) {
+          console.error('contentArea元素不存在')
+          throw new Error('contentArea元素不存在')
+        }
+        
+        // 转义文件名，防止XSS
+        const safeFileName = (fileData.fileName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        const safeFileType = (fileData.fileType || '未知').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        
+        contentArea.innerHTML = `
+          <div class="document-info">
+            <div class="document-icon">${getFileIcon(fileData.fileName, fileData.fileType)}</div>
+            <h2>${safeFileName}</h2>
+            <p>
+              文件类型: ${safeFileType}<br>
+              文件大小: ${formatFileSize(fileData.fileSize)}<br><br>
+              此文件类型需要下载后使用对应软件打开<br>
+              或使用在线文档查看器
+            </p>
+            <button class="download-btn" onclick="downloadFile()">
+              <span>⬇️</span>
+              <span>下载文件</span>
+            </button>
+          </div>
+        `
+        console.log('文档渲染完成')
+      } catch (error) {
+        console.error('渲染文档失败:', error)
+        throw error
+      }
+    }
+
+    // 下载文件
+    async function downloadFile() {
+      console.log('downloadFile函数被调用')
+      const urlInfo = getFileIdFromUrl()
+      console.log('URL信息:', urlInfo)
+      
+      if (!urlInfo || urlInfo.type !== 'file') {
+        console.error('无法获取文件ID用于下载，urlInfo:', urlInfo)
+        alert('无法获取文件信息，请刷新页面重试')
+        return
+      }
+
+      const fileId = urlInfo.id
+      console.log('准备下载文件，文件ID:', fileId)
+
+      try {
+        let fileData = null
+        
+        // 优先从本地存储获取
+        console.log('尝试从本地存储获取文件数据...')
+        let fileDataStr = localStorage.getItem(fileId)
+        
+        if (fileDataStr) {
+          try {
+            const localStorageData = JSON.parse(fileDataStr)
+            // 检查是否标记为存储在IndexedDB中
+            if (localStorageData._indexedDB) {
+              console.log('检测到文件存储在IndexedDB中，开始读取...')
+              fileData = await getFileFromIndexedDB(fileId)
+              if (!fileData) {
+                throw new Error('IndexedDB中未找到文件数据')
+              }
+              console.log('✓ 从IndexedDB获取文件数据成功')
+            } else {
+              // 数据在localStorage中
+              fileData = localStorageData
+              console.log('✓ 从localStorage获取文件数据成功')
+            }
+          } catch (parseError) {
+            console.error('解析localStorage数据失败:', parseError)
+            // 如果解析失败，尝试从IndexedDB读取
+            console.log('尝试从IndexedDB读取...')
+            fileData = await getFileFromIndexedDB(fileId)
+            if (fileData) {
+              console.log('✓ 从IndexedDB获取文件数据成功')
+            }
+          }
+        } else {
+          // localStorage中没有，尝试从IndexedDB读取
+          console.log('localStorage中未找到，尝试从IndexedDB读取...')
+          fileData = await getFileFromIndexedDB(fileId)
+          if (fileData) {
+            console.log('✓ 从IndexedDB获取文件数据成功')
+          }
+        }
+        
+        // 如果本地存储也没有，尝试从服务器获取
+        if (!fileData) {
+          console.log('本地存储未找到，尝试从服务器获取文件数据...')
+          fileData = await getContentFromServer(fileId)
+          if (fileData) {
+            console.log('✓ 从服务器获取文件数据成功')
+          }
+        }
+        
+        if (!fileData) {
+          console.error('文件数据未找到，文件ID:', fileId)
+          alert('文件未找到，可能已过期或被删除')
+          return
+        }
+
+        console.log('文件数据读取成功，文件信息:', {
+          fileName: fileData.fileName,
+          fileType: fileData.fileType,
+          hasDataURL: !!fileData.dataURL
+        })
+        
+        if (!fileData.dataURL) {
+          console.error('文件数据缺少dataURL')
+          alert('文件数据不完整，无法下载')
+          return
+        }
+        
+        console.log('创建下载链接...')
+        const link = document.createElement('a')
+        link.href = fileData.dataURL
+        link.download = fileData.fileName || 'download'
+        link.style.display = 'none'
+        document.body.appendChild(link)
+        
+        console.log('触发下载...')
+        link.click()
+        
+        // 延迟移除，确保下载开始
+        setTimeout(() => {
+          document.body.removeChild(link)
+          console.log('下载链接已移除')
+        }, 100)
+        
+        console.log('下载完成')
+      } catch (error) {
+        console.error('下载失败:', error)
+        console.error('错误详情:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        })
+        alert('下载失败: ' + error.message + '\n\n请检查控制台查看详细信息')
+      }
+    }
+
+    // 加载文件
+    async function loadFile() {
+      const urlInfo = getFileIdFromUrl()
+      
+      if (!urlInfo) {
+        console.log('无法解析URL信息')
+        console.log('当前URL:', window.location.href)
+        console.log('当前hash:', window.location.hash)
+        console.log('当前search:', window.location.search)
+        
+        // 提供更详细的错误信息和解决建议
+        let errorMsg = '无效的链接\n\n'
+        errorMsg += '请扫描有效的二维码\n\n'
+        errorMsg += '调试信息：\n'
+        errorMsg += '当前URL: ' + window.location.href + '\n'
+        errorMsg += 'Hash: ' + (window.location.hash || '(空)') + '\n'
+        errorMsg += '查询参数: ' + (window.location.search || '(空)') + '\n\n'
+        errorMsg += '可能的原因：\n'
+        errorMsg += '1. 二维码中没有包含文件ID信息\n'
+        errorMsg += '2. 二维码格式不正确（应该是文件/图片/音视频类型的二维码）\n'
+        errorMsg += '3. 某些扫码工具可能会去掉URL中的hash部分\n\n'
+        errorMsg += '解决方案：\n'
+        errorMsg += '• 确保生成的是文件/图片/音视频类型的二维码（不是文本类型）\n'
+        errorMsg += '• 重新生成二维码并扫描\n'
+        errorMsg += '• 尝试使用不同的扫码工具'
+        
+        showError('无效的链接', errorMsg)
+        return
+      }
+
+      // 如果是文件夹，显示文件列表
+      if (urlInfo.type === 'folder') {
+        await loadFolder(urlInfo.id)
+        return
+      }
+
+      // 如果是活码，显示活码内容
+      if (urlInfo.type === 'dynamic') {
+        loadDynamicQR(urlInfo.id)
+        return
+      }
+
+      // 加载单个文件
+      const fileId = urlInfo.id
+
+      try {
+        console.log('尝试加载文件，文件ID:', fileId)
+        
+        let fileData = null
+        
+        // 优先从本地存储获取（更快，更可靠）
+        console.log('尝试从本地存储获取文件...')
+        let fileDataStr = localStorage.getItem(fileId)
+        
+        if (fileDataStr) {
+          try {
+            const localStorageData = JSON.parse(fileDataStr)
+            // 检查是否标记为存储在IndexedDB中
+            if (localStorageData._indexedDB) {
+              console.log('检测到文件存储在IndexedDB中，开始读取...')
+              fileData = await getFileFromIndexedDB(fileId)
+              if (!fileData) {
+                throw new Error('IndexedDB中未找到文件数据')
+              }
+            } else {
+              // 数据在localStorage中
+              fileData = localStorageData
+              console.log('✓ 从localStorage获取文件成功')
+            }
+          } catch (parseError) {
+            console.error('解析localStorage数据失败:', parseError)
+            // 如果解析失败，尝试从IndexedDB读取
+            console.log('尝试从IndexedDB读取...')
+            fileData = await getFileFromIndexedDB(fileId)
+          }
+        } else {
+          // localStorage中没有，尝试从IndexedDB读取
+          console.log('localStorage中未找到，尝试从IndexedDB读取...')
+          fileData = await getFileFromIndexedDB(fileId)
+        }
+        
+        // 如果本地存储也没有，尝试从服务器获取
+        if (!fileData) {
+          console.log('本地存储未找到，尝试从服务器获取文件...')
+          fileData = await getContentFromServer(fileId)
+          
+          if (fileData) {
+            console.log('✓ 从服务器获取文件成功')
+            // 统一处理：如果服务器返回的数据有data字段但没有dataURL，使用data作为dataURL
+            if (fileData.data && !fileData.dataURL) {
+              fileData.dataURL = fileData.data
+            }
+          } else {
+            // 服务器也没有，显示错误
+            console.log('服务器和本地存储都未找到文件')
+          }
+        }
+        
+        // 统一处理数据：确保dataURL字段存在
+        if (fileData) {
+          // 如果只有data字段，使用它作为dataURL
+          if (fileData.data && !fileData.dataURL) {
+            fileData.dataURL = fileData.data
+          }
+        }
+        
+        if (!fileData) {
+          // 如果都找不到，显示错误
+          const allKeys = []
+          for (let i = 0; i < localStorage.length; i++) {
+            allKeys.push(localStorage.key(i))
+          }
+          console.log('当前URL:', window.location.href)
+          console.log('解析的文件ID:', fileId)
+          console.log('localStorage中的所有key:', allKeys)
+          console.log('localStorage数量:', localStorage.length)
+          
+          // 尝试查找相似的文件ID（可能是时间戳问题）
+          const similarKeys = allKeys.filter(key => {
+            if (!key) return false
+            // 如果是文件夹文件，查找同文件夹下的文件（支持 _file_ 和 _image_）
+            if (fileId.includes('_file_') || fileId.includes('_image_')) {
+              const folderIdMatch = fileId.match(/^(folder_\d+)(?:_file_|_image_)/)
+              if (folderIdMatch) {
+                return key.startsWith(folderIdMatch[1] + '_file_') || key.startsWith(folderIdMatch[1] + '_image_')
+              }
+            }
+            return key.includes(fileId.split('_')[0])
+          })
+          
+          if (similarKeys.length > 0) {
+            console.log('找到相似的文件ID:', similarKeys)
+          }
+          
+          // 检查API服务器状态
+          let serverStatus = '未知'
+          try {
+            const apiBaseUrl = getApiBaseUrl()
+            const healthResponse = await fetch(`${apiBaseUrl}/health`, { method: 'GET' })
+            serverStatus = healthResponse.ok ? '可用' : '不可用'
+          } catch (e) {
+            serverStatus = '不可用（无法连接）'
+          }
+          
+          let errorMsg = '内容未找到或已过期\n\n'
+          errorMsg += '请确保已保存到服务器\n\n'
+          errorMsg += '可能的原因：\n'
+          errorMsg += '1. 文件未保存到服务器（只保存在本地）\n'
+          errorMsg += '2. 文件已过期或被删除\n'
+          errorMsg += '3. 在不同的浏览器或设备中打开（本地存储无法跨设备共享）\n'
+          errorMsg += '4. 浏览器数据被清除\n'
+          errorMsg += '5. API服务器不可用\n\n'
+          errorMsg += '当前状态：\n'
+          errorMsg += '• API服务器: ' + serverStatus + '\n'
+          errorMsg += '• 本地存储: ' + localStorage.length + ' 项\n\n'
+          errorMsg += '解决方案：\n'
+          errorMsg += '1. 检查API服务器是否运行（端口3000）\n'
+          errorMsg += '2. 在生成二维码时确保文件已保存到服务器\n'
+          errorMsg += '3. 重新生成二维码并确保保存成功\n'
+          errorMsg += '4. 如果API服务器不可用，请在生成二维码的同一设备/浏览器中打开\n\n'
+          errorMsg += '调试信息：\n'
+          errorMsg += '文件ID: ' + fileId + '\n'
+          errorMsg += '当前URL: ' + window.location.href
+          
+          if (similarKeys.length > 0) {
+            errorMsg += '\n\n找到相似的文件ID: ' + similarKeys.join(', ')
+          }
+          
+          showError('内容未找到或已过期', errorMsg)
+          return
+        }
+        
+        console.log('文件数据读取成功')
+        console.log('文件信息:', {
+          fileName: fileData.fileName,
+          fileType: fileData.fileType,
+          fileSize: fileData.fileSize,
+          hasDataURL: !!fileData.dataURL,
+          dataURLLength: fileData.dataURL ? fileData.dataURL.length : 0
+        })
+        
+        // 检查必要字段
+        if (!fileData.fileName) {
+          console.error('文件数据缺少fileName字段')
+          showError('数据不完整', '文件数据缺少必要信息')
+          return
+        }
+        
+        if (!fileData.dataURL) {
+          console.error('文件数据缺少dataURL字段')
+          showError('数据不完整', '文件数据缺少内容')
+          return
+        }
+        
+        try {
+          // 更新头部信息
+          const fileIcon = getFileIcon(fileData.fileName, fileData.fileType)
+          document.getElementById('fileIcon').textContent = fileIcon
+          document.getElementById('fileName').textContent = fileData.fileName
+          console.log('头部信息更新成功')
+        } catch (error) {
+          console.error('更新头部信息失败:', error)
+        }
+        
+        try {
+          // 显示下载按钮
+          document.getElementById('downloadBtn').style.display = 'flex'
+          document.getElementById('downloadBtn').onclick = downloadFile
+          console.log('下载按钮设置成功')
+        } catch (error) {
+          console.error('设置下载按钮失败:', error)
+        }
+
+        try {
+          // 根据文件类型渲染内容
+          const fileType = fileData.fileType || ''
+          const fileName = fileData.fileName || ''
+          const ext = fileName.split('.').pop().toLowerCase()
+          
+          console.log('准备渲染文件，类型:', fileType, '扩展名:', ext)
+
+          // 检查是否为视频文件（通过MIME类型或扩展名）
+          const isVideo = fileType.startsWith('video/') || ['mp4', 'mov', 'avi', 'wmv', 'flv', 'webm', 'mkv', 'm4v'].includes(ext)
+          
+          if (isVideo) {
+            console.log('渲染视频')
+            renderVideo(fileData)
+          } else if (fileType.startsWith('audio/')) {
+            console.log('渲染音频')
+            renderAudio(fileData)
+          } else if (fileType.startsWith('image/')) {
+            console.log('渲染图片')
+            renderImage(fileData)
+          } else if (fileType === 'application/pdf' || ext === 'pdf') {
+            console.log('渲染PDF')
+            renderPDF(fileData)
+          } else if (['doc', 'docx'].includes(ext)) {
+            console.log('渲染Word文档')
+            renderWord(fileData)
+          } else if (['xls', 'xlsx'].includes(ext)) {
+            console.log('渲染Excel文档')
+            renderExcel(fileData)
+          } else if (['ppt', 'pptx'].includes(ext)) {
+            console.log('渲染PPT文档')
+            renderPPT(fileData)
+          } else if (fileType.startsWith('text/') || ['txt', 'md', 'json', 'xml', 'csv'].includes(ext)) {
+            console.log('渲染文本')
+            renderText(fileData)
+          } else {
+            console.log('渲染文档（默认）')
+            renderDocument(fileData)
+          }
+          console.log('文件渲染完成')
+        } catch (renderError) {
+          console.error('渲染文件失败:', renderError)
+          showError('渲染失败', '无法显示文件内容\n错误: ' + renderError.message + '\n\n文件类型: ' + (fileData.fileType || '未知'))
+          return
+        }
+
+        try {
+          // 显示信息面板
+          document.getElementById('infoFileName').textContent = fileData.fileName
+          document.getElementById('infoFileType').textContent = fileData.fileType || '未知'
+          document.getElementById('infoFileSize').textContent = formatFileSize(fileData.fileSize)
+          document.getElementById('infoTimestamp').textContent = formatDate(fileData.timestamp)
+          document.getElementById('infoPanel').style.display = 'block'
+          console.log('信息面板显示成功')
+        } catch (error) {
+          console.error('显示信息面板失败:', error)
+        }
+
+      } catch (error) {
+        console.error('加载文件失败:', error)
+        showError('加载失败', '文件数据可能已损坏\n错误: ' + error.message)
+      }
+    }
+
+    // 页面加载时执行
+    window.addEventListener('load', loadFile)
+    window.addEventListener('hashchange', loadFile)
+  </script>
+</body>
+</html>

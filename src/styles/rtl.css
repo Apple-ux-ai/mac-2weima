@@ -1,0 +1,34 @@
+html[dir='rtl'] body {
+  direction: rtl;
+}
+
+html[dir='rtl'] .nav-container,
+html[dir='rtl'] .nav-actions,
+html[dir='rtl'] .modal-footer {
+  flex-direction: row-reverse;
+}
+
+html[dir='rtl'] .window-controls {
+  border-left: none;
+  border-right: 1px solid #eee;
+  padding-left: 0;
+  padding-right: 12px;
+}
+
+html[dir='rtl'] .user-panel {
+  right: auto;
+  left: 0;
+}
+
+html[dir='rtl'] .option-row label,
+html[dir='rtl'] .file-details,
+html[dir='rtl'] .data-item,
+html[dir='rtl'] .question-text {
+  text-align: right;
+}
+
+html[dir='rtl'] .remove-btn {
+  right: auto;
+  left: 8px;
+}
+

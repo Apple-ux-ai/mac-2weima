@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Advanced Viewer</title>
+  <script src="./i18n/core.js"></script>
+  <link rel="stylesheet" href="./rtl.css">
+  <script>
+    // 配置公网API地址（可选）
+    // 如果API地址固定，可以在这里设置
+    // window.API_BASE_URL = 'https://your-api-domain.com'
+  </script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+      background: #f5f5f5;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .content-container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+    }
+
+    .page-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid #e0e0e0;
+    }
+
+    .content-block {
+      margin-bottom: 20px;
+      padding: 16px;
+      border-radius: 8px;
+      background: #fafafa;
+    }
+
+    .content-block.title {
+      font-size: 1.3rem;
+      font-weight: 600;
+      background: #e3f2fd;
+    }
+
+    .content-block.text {
+      line-height: 1.8;
+      color: #333;
+    }
+
+    .content-block.image {
+      text-align: center;
+    }
+
+    .content-block.image img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+    }
+
+    /* 撑满屏幕的图片样式 - 突破容器padding限制 */
+    .image-fill-screen {
+      margin-left: -30px !important;
+      margin-right: -30px !important;
+      width: calc(100% + 60px) !important;
+      max-width: calc(100% + 60px) !important;
+    }
+
+    .image-fill-screen img {
+      width: 100% !important;
+      max-width: 100% !important;
+      border-radius: 0 !important;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 60px 20px;
+      color: #999;
+    }
+
+    .error {
+      text-align: center;
+      padding: 60px 20px;
+      color: #f44336;
+    }
+
+    /* 文件元素统一蓝色边框 */
+    .content-container .editor-file,
+    .content-container .content-block-wrapper .editor-file {
+      box-shadow: rgb(33, 150, 243) 0px 0px 0px 2px !important;
+      border-radius: 8px !important;
+    }
+  </style>
+</head>
+<body>
+  <!-- 返回按钮已移除UI，功能保留在goBack()函数中 -->
+  <div class="content-container">
+    <div id="loading" class="loading">Loading...</div>
+    <div id="error" class="error" style="display: none;"></div>
+    <div id="content" style="display: none;"></div>
+  </div>
+
+  <script>
+    const t = (key, params, fallback) => window.PublicI18n?.t(key, params, fallback) || fallback || key
+    document.title = t('advancedViewer.title', null, 'Advanced Viewer')
+    window.addEventListener('DOMContentLoaded', () => {
+      const loading = document.getElementById('loading')
+      if (loading) loading.textContent = t('common.loading', null, 'Loading...')
+    })
+
+    // 配置公网API地址
+    // 优先级：URL参数 > 全局变量 > 当前域名 > 默认值
+    function getApiBaseUrl() {
+      // 方式1: 从URL参数获取（最灵活，推荐）
+      const urlParams = new URLSearchParams(window.location.search)
+      const apiUrl = urlParams.get('api')
+      if (apiUrl) {
+        return decodeURIComponent(apiUrl)
+      }
+      
+      // 方式2: 从全局变量获取（在head中配置）
+      if (window.API_BASE_URL) {
+        return window.API_BASE_URL
+      }
+      
+      // 方式3: 使用当前域名（如果API和viewer在同一域名）
+      const currentOrigin = window.location.origin
+      if (currentOrigin && !currentOrigin.includes('localhost') && !currentOrigin.includes('127.0.0.1')) {
+        return currentOrigin
+      }
+      
+      // 方式4: 开发环境默认值
+      if (currentOrigin.includes('localhost') || currentOrigin.includes('127.0.0.1')) {
+        return 'http://localhost:3000'
+      }
+      
+      // 方式5: 默认值（需要手动配置）
+      return 'https://your-api-domain.com'
+    }
+    
+    const API_BASE_URL = getApiBaseUrl()
+    
+    // 在控制台输出API地址（方便调试）
+    console.log('API Base URL:', API_BASE_URL)
+    
+    function getContentIdFromUrl() {
+      const hash = window.location.hash
+      const match = hash.match(/\/view\/(.+)/)
+      return match ? match[1] : null
+    }
+
+    // 从IndexedDB读取文件
+    async function getFileFromIndexedDB(id) {
+      return new Promise((resolve, reject) => {
+        if (!('indexedDB' in window)) {
+          resolve(null)
+          return
+        }
+        
+        const request = indexedDB.open('QRCodeStorage', 1)
+        
+        request.onerror = () => {
+          console.warn('IndexedDB打开失败:', request.error)
+          resolve(null)
+        }
+        
+        request.onsuccess = () => {
+          const db = request.result
+          const transaction = db.transaction(['files'], 'readonly')
+          const store = transaction.objectStore('files')
+          const getRequest = store.get(id)
+          
+          getRequest.onsuccess = () => {
+            if (getRequest.result) {
+              console.log('✓ 从IndexedDB获取内容成功:', id)
+              resolve(getRequest.result.data)
+            } else {
+              resolve(null)
+            }
+          }
+          
+          getRequest.onerror = () => {
+            console.warn('IndexedDB读取失败:', getRequest.error)
+            resolve(null)
+          }
+        }
+        
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result
+          if (!db.objectStoreNames.contains('files')) {
+            db.createObjectStore('files', { keyPath: 'id' })
+          }
+        }
+      })
+    }
+
+    async function loadContent() {
+      const contentId = getContentIdFromUrl()
+      
+      if (!contentId) {
+        showError('无效的内容ID')
+        return
+      }
+
+      try {
+        let data = null
+        
+        // 步骤1: 优先从localStorage读取
+        let dataStr = localStorage.getItem(contentId)
+        if (dataStr) {
+          try {
+            const parsed = JSON.parse(dataStr)
+            // 检查是否是IndexedDB标记
+            if (parsed._indexedDB === true) {
+              // 数据存储在IndexedDB中，从IndexedDB读取
+              console.log('检测到IndexedDB标记，从IndexedDB读取:', contentId)
+              data = await getFileFromIndexedDB(contentId)
+            } else {
+              // 直接是数据内容
+              data = parsed
+            }
+            
+            if (data) {
+              console.log('✓ 从本地存储获取内容成功')
+              renderContent(data)
+              document.getElementById('loading').style.display = 'none'
+              document.getElementById('content').style.display = 'block'
+              return
+            }
+          } catch (parseError) {
+            console.error('解析本地存储数据失败:', parseError)
+            // 解析失败，继续尝试其他方式
+          }
+        }
+        
+        // 步骤2: 如果localStorage没有，尝试直接从IndexedDB读取
+        if (!data) {
+          data = await getFileFromIndexedDB(contentId)
+          if (data) {
+            console.log('✓ 从IndexedDB获取内容成功')
+            renderContent(data)
+            document.getElementById('loading').style.display = 'none'
+            document.getElementById('content').style.display = 'block'
+            return
+          }
+        }
+        
+        // 步骤3: 如果本地存储都没有，尝试从服务器获取
+        if (!data) {
+          try {
+            const response = await fetch(`${API_BASE_URL}/api/content/${contentId}`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            })
+            
+            if (response.ok) {
+              const result = await response.json()
+              
+              if (result.success && result.data) {
+                data = result.data
+                console.log('✓ 从服务器获取内容成功')
+                renderContent(data)
+                document.getElementById('loading').style.display = 'none'
+                document.getElementById('content').style.display = 'block'
+                return
+              }
+            } else if (response.status === 404) {
+              console.log('服务器未找到内容')
+            }
+          } catch (apiError) {
+            console.warn('从服务器获取失败:', apiError)
+          }
+        }
+        
+        // 如果都找不到，显示错误
+        if (!data) {
+          showError('内容未找到\n\n可能的原因：\n1. 内容未保存\n2. 浏览器缓存已清除\n3. 服务器未运行\n\n建议：\n1. 重新生成二维码\n2. 启动API服务器保存到服务器')
+          return
+        }
+        
+      } catch (error) {
+        console.error('加载内容失败:', error)
+        showError('内容加载失败：' + error.message)
+      }
+    }
+
+    function renderContent(data) {
+      const container = document.getElementById('content')
+      
+      let html = ''
+      
+      // 显示页面标题
+      if (data.title) {
+        html += `<h1 class="page-title">${data.title}</h1>`
+      }
+      
+      // 优先使用HTML内容
+      if (data.html) {
+        html += data.html
+      } else if (data.content && Array.isArray(data.content)) {
+        // 显示内容块
+        data.content.forEach((block, index) => {
+          const style = block.style || {}
+          const styleStr = Object.entries(style)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join('; ')
+          
+          html += `<div class="content-block ${block.type}" style="${styleStr}">`
+          
+          if (block.type === 'image' && block.src) {
+            html += `<img src="${block.src}" alt="${block.alt || ''}" />`
+          } else if (block.content) {
+            html += block.content
+          }
+          
+          html += '</div>'
+        })
+      }
+      
+      container.innerHTML = html || '<div class="content-block">暂无内容</div>'
+      
+      // 绑定评分星星点击事件
+      bindRatingStars()
+      
+      // 初始化图片轮播
+      initImageCarousel()
+    }
+    
+    // 初始化图片轮播功能
+    function initImageCarousel() {
+      const carouselContainers = document.querySelectorAll('.image-carousel-container')
+      
+      carouselContainers.forEach(container => {
+        try {
+          const carouselDataStr = container.getAttribute('data-carousel')
+          if (!carouselDataStr) return
+          
+          // 解析轮播数据
+          const carouselData = JSON.parse(carouselDataStr.replace(/&quot;/g, '"').replace(/&#39;/g, "'"))
+          const images = carouselData.images || []
+          const interval = carouselData.interval || 'manual'
+          const size = carouselData.size || 'original'
+          
+          if (images.length <= 1) return // 只有一张图片，不需要轮播
+          
+          const wrapper = container.querySelector('.carousel-image-wrapper')
+          if (!wrapper) return
+          
+          const currentImg = wrapper.querySelector('.carousel-image')
+          if (!currentImg) return
+          
+          let currentIndex = 0
+          let carouselTimer = null
+          let isAutoPlay = interval !== 'manual'
+          let intervalMs = isAutoPlay ? parseInt(interval) : 0
+          
+          // 验证轮播时间间隔
+          if (isAutoPlay && (isNaN(intervalMs) || intervalMs <= 0)) {
+            console.warn('无效的轮播时间间隔，使用默认值3000ms')
+            intervalMs = 3000
+          }
+          
+          // 添加指示器（显示当前是第几张）
+          const indicator = document.createElement('div')
+          indicator.className = 'carousel-indicator'
+          indicator.style.cssText = 'position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.5); color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; z-index: 10;'
+          indicator.textContent = `1 / ${images.length}`
+          wrapper.appendChild(indicator)
+          
+          // 更新图片
+          function updateImage(index) {
+            if (index < 0 || index >= images.length) return
+            
+            currentIndex = index
+            currentImg.src = images[currentIndex]
+            currentImg.alt = `轮播图片 ${currentIndex + 1}/${images.length}`
+            // 更新指示器
+            indicator.textContent = `${currentIndex + 1} / ${images.length}`
+          }
+          
+          // 下一张图片
+          function nextImage() {
+            const nextIndex = (currentIndex + 1) % images.length
+            updateImage(nextIndex)
+          }
+          
+          // 启动轮播定时器
+          function startCarousel() {
+            if (isAutoPlay && intervalMs > 0) {
+              // 清除现有定时器
+              if (carouselTimer) {
+                clearInterval(carouselTimer)
+                carouselTimer = null
+              }
+              // 设置新定时器
+              carouselTimer = setInterval(() => {
+                nextImage()
+              }, intervalMs)
+              console.log('轮播定时器已启动，间隔:', intervalMs, 'ms')
+            }
+          }
+          
+          // 停止轮播定时器
+          function stopCarousel() {
+            if (carouselTimer) {
+              clearInterval(carouselTimer)
+              carouselTimer = null
+              console.log('轮播定时器已停止')
+            }
+          }
+          
+          // 如果是自动轮播，立即启动
+          if (isAutoPlay && intervalMs > 0) {
+            startCarousel()
+          }
+          
+          // 添加左右切换按钮（手动模式或辅助操作）
+          const prevBtn = document.createElement('button')
+          prevBtn.innerHTML = '‹'
+          prevBtn.className = 'carousel-btn carousel-prev'
+          prevBtn.style.cssText = 'position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; font-size: 24px; line-height: 1; z-index: 10; opacity: 0; transition: opacity 0.3s;'
+          prevBtn.onclick = (e) => {
+            e.stopPropagation()
+            const prevIndex = (currentIndex - 1 + images.length) % images.length
+            updateImage(prevIndex)
+            // 如果是自动轮播，重新启动定时器
+            if (isAutoPlay) {
+              startCarousel()
+            }
+          }
+          
+          const nextBtn = document.createElement('button')
+          nextBtn.innerHTML = '›'
+          nextBtn.className = 'carousel-btn carousel-next'
+          nextBtn.style.cssText = 'position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; font-size: 24px; line-height: 1; z-index: 10; opacity: 0; transition: opacity 0.3s;'
+          nextBtn.onclick = (e) => {
+            e.stopPropagation()
+            nextImage()
+            // 如果是自动轮播，重新启动定时器
+            if (isAutoPlay) {
+              startCarousel()
+            }
+          }
+          
+          wrapper.appendChild(prevBtn)
+          wrapper.appendChild(nextBtn)
+          
+          // 合并鼠标事件处理：悬停时暂停轮播并显示按钮，离开时恢复轮播并隐藏按钮
+          container.addEventListener('mouseenter', () => {
+            // 显示按钮
+            prevBtn.style.opacity = '1'
+            nextBtn.style.opacity = '1'
+            // 暂停轮播（如果是自动轮播）
+            if (isAutoPlay) {
+              stopCarousel()
+            }
+          })
+          
+          container.addEventListener('mouseleave', () => {
+            // 隐藏按钮
+            prevBtn.style.opacity = '0'
+            nextBtn.style.opacity = '0'
+            // 恢复轮播（如果是自动轮播）
+            if (isAutoPlay) {
+              startCarousel()
+            }
+          })
+          
+          // 页面可见性变化时处理轮播
+          document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+              // 页面隐藏时停止轮播
+              stopCarousel()
+            } else {
+              // 页面显示时恢复轮播
+              if (isAutoPlay) {
+                startCarousel()
+              }
+            }
+          })
+          
+        } catch (error) {
+          console.error('初始化轮播失败:', error)
+        }
+      })
+    }
+    
+    // 绑定评分星星点击事件
+    function bindRatingStars() {
+      // 处理评分星星点击
+      document.addEventListener('click', (e) => {
+        let ratingElement = e.target.closest('.rating-star')
+        
+        // 如果没找到，向上遍历DOM树查找
+        if (!ratingElement) {
+          let current = e.target
+          while (current && current !== document.body) {
+            if (current.classList && current.classList.contains('rating-star')) {
+              ratingElement = current
+              break
+            }
+            if (current.getAttribute && current.getAttribute('data-rating-value')) {
+              ratingElement = current
+              break
+            }
+            if (current.parentElement) {
+              const parent = current.parentElement
+              if (parent.classList && parent.classList.contains('rating-star')) {
+                ratingElement = parent
+                break
+              }
+              if (parent.getAttribute && parent.getAttribute('data-rating-value')) {
+                ratingElement = parent
+                break
+              }
+            }
+            current = current.parentElement
+          }
+        }
+        
+        if (ratingElement) {
+          e.stopPropagation()
+          e.preventDefault()
+          
+          const ratingValue = parseInt(ratingElement.getAttribute('data-rating-value'))
+          const componentId = ratingElement.getAttribute('data-component-id')
+          
+          if (!isNaN(ratingValue) && ratingValue >= 1 && ratingValue <= 5 && componentId) {
+            // 更新同一组件内所有星星的颜色
+            const ratingContainer = ratingElement.closest('.rating-stars')
+            if (ratingContainer) {
+              const stars = ratingContainer.querySelectorAll('.rating-star')
+              stars.forEach((star, index) => {
+                const starValue = index + 1
+                const isSelected = ratingValue >= starValue
+                const starColor = isSelected ? '#FFD700' : '#e0e0e0'
+                star.style.color = starColor
+              })
+            }
+          }
+        }
+      }, true)
+    }
+
+    function showError(message) {
+      document.getElementById('loading').style.display = 'none'
+      document.getElementById('error').style.display = 'block'
+      document.getElementById('error').textContent = message
+    }
+
+    // 返回按钮功能
+    function goBack() {
+      console.log('返回按钮被点击')
+      
+      // 检查是否是Electron环境
+      const isElectron = typeof window !== 'undefined' && window.electron !== undefined
+      console.log('是否Electron环境:', isElectron)
+      
+      // 检查URL参数，判断是否从高级编辑器打开
+      // 参数在hash之前，可以直接用URLSearchParams解析
+      const urlParams = new URLSearchParams(window.location.search)
+      const fromAdvancedEditor = urlParams.get('from') === 'advanced-editor'
+      const returnUrl = urlParams.get('returnUrl')
+      
+      console.log('返回按钮点击，fromAdvancedEditor:', fromAdvancedEditor, 'returnUrl:', returnUrl)
+      
+      // 如果是从高级编辑器打开的，优先返回高级编辑器
+      if (fromAdvancedEditor && returnUrl) {
+        try {
+          // 在Electron环境中，通过IPC关闭窗口
+          if (isElectron) {
+            console.log('Electron环境：通过IPC关闭预览窗口')
+            console.log('window.electron:', window.electron)
+            console.log('window.electron.closeWindow:', window.electron ? window.electron.closeWindow : 'undefined')
+            
+            // 优先使用IPC方法关闭窗口
+            if (window.electron && typeof window.electron.closeWindow === 'function') {
+              console.log('调用IPC关闭窗口方法')
+              window.electron.closeWindow().then(result => {
+                console.log('IPC关闭窗口结果:', result)
+                if (result && result.success) {
+                  console.log('窗口已通过IPC关闭')
+                } else {
+                  console.log('IPC关闭失败，尝试直接关闭')
+                  setTimeout(() => {
+                    if (!window.closed) {
+                      try {
+                        window.close()
+                      } catch (e) {
+                        console.error('直接关闭失败:', e)
+                      }
+                    }
+                  }, 100)
+                }
+              }).catch(e => {
+                console.error('IPC关闭窗口异常:', e)
+                // 备用方案：直接关闭
+                setTimeout(() => {
+                  if (!window.closed) {
+                    try {
+                      window.close()
+                    } catch (closeError) {
+                      console.error('直接关闭也失败:', closeError)
+                    }
+                  }
+                }, 100)
+              })
+            } else {
+              console.log('IPC方法不可用，尝试直接关闭')
+              // 如果没有IPC方法，直接关闭
+              try {
+                window.close()
+              } catch (e) {
+                console.error('直接关闭失败:', e)
+              }
+            }
+            return
+          }
+          
+          // Web环境：尝试关闭窗口
+          if (window.opener && !window.opener.closed) {
+            console.log('尝试关闭窗口')
+            window.close()
+            // 给关闭操作一些时间，如果500ms后窗口还在，则跳转
+            setTimeout(() => {
+              if (!window.closed) {
+                console.log('窗口未关闭，尝试跳转')
+                try {
+                  const decodedUrl = decodeURIComponent(returnUrl)
+                  window.location.href = decodedUrl
+                } catch (e) {
+                  console.error('跳转失败:', e)
+                }
+              }
+            }, 500)
+            return
+          }
+          
+          // 如果没有opener，直接跳转到返回URL
+          const decodedUrl = decodeURIComponent(returnUrl)
+          console.log('跳转到返回URL:', decodedUrl)
+          window.location.href = decodedUrl
+          return
+        } catch (e) {
+          console.error('处理返回URL失败:', e)
+          // 如果出错，尝试关闭窗口或返回上一页
+          try {
+            if (isElectron) {
+              window.close()
+            } else if (window.history.length > 1) {
+              window.history.back()
+            } else {
+              window.location.href = window.location.origin
+            }
+          } catch (closeError) {
+            console.error('所有返回方式都失败:', closeError)
+            window.location.href = window.location.origin
+          }
+          return
+        }
+      }
+      
+      // 不是从高级编辑器打开的情况
+      // 在Electron环境中，尝试关闭窗口
+      if (isElectron) {
+        try {
+          window.close()
+          return
+        } catch (e) {
+          console.log('Electron关闭窗口失败:', e)
+        }
+      }
+      
+      // 尝试关闭窗口（如果是通过window.open打开的）
+      try {
+        if (window.opener && !window.opener.closed) {
+          window.close()
+          return
+        }
+      } catch (e) {
+        console.log('无法关闭窗口:', e)
+      }
+      
+      // 尝试返回上一页
+      if (window.history.length > 1) {
+        window.history.back()
+      } else {
+        // 如果没有历史记录，尝试跳转到主页
+        const baseUrl = window.location.origin
+        window.location.href = baseUrl
+      }
+    }
+
+    // 页面加载时执行
+    window.addEventListener('load', loadContent)
+    window.addEventListener('hashchange', loadContent)
+  </script>
+</body>
+</html>
+

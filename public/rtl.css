@@ -1,0 +1,25 @@
+html[dir='rtl'] body {
+  direction: rtl;
+}
+
+html[dir='rtl'] .header-left,
+html[dir='rtl'] .text-content,
+html[dir='rtl'] .document-info p,
+html[dir='rtl'] .error-message p {
+  text-align: right !important;
+}
+
+html[dir='rtl'] .action-buttons {
+  flex-direction: row-reverse;
+}
+
+html[dir='rtl'] .close-btn {
+  margin-left: 0;
+  margin-right: 12px;
+}
+
+html[dir='rtl'] .back-button {
+  left: auto !important;
+  right: 20px !important;
+}
+
