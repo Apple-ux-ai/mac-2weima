@@ -39,7 +39,7 @@
   },
   "build": {
     "appId": "com.kunqiong.qrcode",
-    "productName": "二维码生成器",
+    "productName": "2weima",
     "directories": {
       "output": "release-builds"
     },
@@ -71,7 +71,23 @@
         "zip"
       ],
       "category": "public.app-category.utilities",
-      "icon": "public/二维码生成器.png"
+      "icon": "public/二维码生成器.png",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "extendInfo": {
+        "CFBundleDisplayName": "二维码生成器",
+        "CFBundleName": "二维码生成器"
+      }
+    },
+    "dmg": {
+      "sign": false
+    },
+    "linux": {
+      "target": [
+        "zip"
+      ],
+      "category": "Utility"
     },
     "nsis": {
       "oneClick": false,
