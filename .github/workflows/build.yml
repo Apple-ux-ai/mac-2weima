@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
-    # 显式收紧权限：不发 GitHub Release（见 package.json publish:null）；upload-artifact 需要 actions: write
+    # 仅构建 macOS（arm64 + Intel）；不发 GitHub Release；upload-artifact 需要 actions: write
     permissions:
       contents: read
       actions: write
@@ -17,12 +17,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: windows-latest
-            artifact_suffix: windows-latest
-            mac_arch: ''
-          - os: ubuntu-latest
-            artifact_suffix: ubuntu-latest
-            mac_arch: ''
           - os: macos-latest
             artifact_suffix: macos-arm64
             mac_arch: arm64
@@ -47,20 +41,13 @@ jobs:
         run: npm test
         continue-on-error: true
 
-      # mac：分别打 arm64（Apple 芯片）与 x64（Intel）；图标用纯英文路径
       - name: Prepare Mac icon (ASCII path)
-        if: matrix.mac_arch != ''
         run: mkdir -p build && cp "public/二维码生成器.png" build/icon-mac.png
 
       - name: Build Electron App (macOS zip, ${{ matrix.mac_arch }})
-        if: matrix.mac_arch != ''
         run: npm run build && npx electron-builder --mac zip --publish never --config.mac.icon=build/icon-mac.png --${{ matrix.mac_arch }}
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
-
-      - name: Build Electron App (Windows / Linux)
-        if: matrix.mac_arch == ''
-        run: npm run electron:build
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
